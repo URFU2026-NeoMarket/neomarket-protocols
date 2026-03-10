@@ -551,6 +551,235 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ========== КОРЗИНА ИЗМЕНЕНИЯ КОЛ-ВА ==========
+  /cart/items:
+    post:
+      summary: Добавить товар в корзину
+      description: >
+        Добавляет SKU в корзину текущего пользователя.
+        Перед сохранением проверяет: дубликат в корзине,
+        существование и доступность SKU в Product Service,
+        достаточность остатков.
+        Корзина НЕ резервирует товар — резервирование происходит
+        только при оформлении заказа.
+      operationId: addCartItem
+      tags:
+        - Cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+            example:
+              skuId: 101
+              quantity: 1
+      responses:
+        '201':
+          description: Товар успешно добавлен в корзину
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartItemResponse'
+              example:
+                id: "item_789xyz"
+                sku:
+                  id: 101
+                  name: "256GB Black"
+                  priceAtAddition: 12999000
+                  image: "/s3/iphone15-black.jpg"
+                product:
+                  id: 42
+                  title: "iPhone 15 Pro Max"
+                quantity: 1
+                itemTotalPrice: 12999000
+                cartTotalPrice: 12999000
+        '400':
+          description: Невалидный запрос — quantity меньше 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INVALID_QUANTITY"
+                message: "Количество должно быть не менее 1"
+        '401':
+          description: Токен отсутствует или невалиден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "UNAUTHORIZED"
+                message: "Токен отсутствует или невалиден"
+        '404':
+          description: SKU не найден в Product Service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "SKU_NOT_FOUND"
+                message: "SKU с id=101 не существует"
+        '409':
+          description: Товар уже есть в корзине
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "SKU_ALREADY_IN_CART"
+                message: "Этот товар уже добавлен в корзину"
+        '410':
+          description: >
+            Товар заблокирован, снят с продажи или не имеет
+            статус MODERATED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "SKU_NOT_AVAILABLE"
+                message: "Товар недоступен для покупки"
+        '422':
+          description: Запрошенное количество превышает остаток на складе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INSUFFICIENT_STOCK"
+                message: "Нельзя добавить 3, доступно только 2"
+        '429':                              
+          description: Слишком много запросов
+        '503':
+          description: Product Service временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "SERVICE_UNAVAILABLE"
+                message: "Сервис временно недоступен, попробуйте позже"
+
+  /cart/items/{itemId}:
+    put:
+      summary: Изменить количество товара в корзине
+      description: >
+        Обновляет количество существующей позиции в корзине.
+        Перед обновлением проверяет принадлежность позиции
+        текущему пользователю, доступность SKU и достаточность остатков.
+        Quantity должен быть >= 1. Для удаления позиции
+        использовать DELETE /cart/items/{itemId}.
+      operationId: updateCartItem
+      tags:
+        - Cart
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          description: ID позиции в корзине
+          schema:
+            type: string
+            format: uuid
+          example: "item_789xyz"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+            example:
+              quantity: 2
+      responses:
+        '200':
+          description: Количество успешно обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartItemResponse'
+              example:
+                id: "item_789xyz"
+                sku:
+                  id: 101
+                  name: "256GB Black"
+                  priceAtAddition: 12999000
+                  image: "/s3/iphone15-black.jpg"
+                product:
+                  id: 42
+                  title: "iPhone 15 Pro Max"
+                quantity: 2
+                itemTotalPrice: 25998000
+                cartTotalPrice: 25998000
+        '400':
+          description: Невалидный запрос — quantity меньше 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INVALID_QUANTITY"
+                message: "Количество должно быть не менее 1"
+        '401':
+          description: Токен отсутствует или невалиден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "UNAUTHORIZED"
+                message: "Токен отсутствует или невалиден"
+        '403':
+          description: Попытка изменить позицию другого пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "ACCESS_DENIED"
+                message: "Нет доступа к этой позиции корзины"
+        '404':
+          description: Позиция с указанным itemId не найдена в корзине
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "CART_ITEM_NOT_FOUND"
+                message: "Позиция item_789xyz не найдена в корзине"
+        '410':
+          description: >
+            Товар заблокирован или снят с продажи.
+            Позиция автоматически помечается как недоступная.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "PRODUCT_NOT_AVAILABLE"
+                message: "Товар недоступен и не может быть обновлён"
+        '422':
+          description: Запрошенное количество превышает остаток на складе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INSUFFICIENT_STOCK"
+                message: "Нельзя установить 10, доступно только 5"
+        '429':                              
+          description: Слишком много запросов
+        '503':
+          description: Product Service временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "SERVICE_UNAVAILABLE"
+                message: "Сервис временно недоступен, попробуйте позже"
+
+
 components:
   schemas:
     # ----- СХЕМЫ ДЛЯ ИЗБРАННОГО -----
@@ -801,3 +1030,124 @@ components:
       required:
         - code
         - message
+    # ========== СХЕМЫ КОРЗИНЫ ИЗМЕНЕНИЯ КОЛ-ВА ==========
+    AddCartItemRequest:
+      type: object
+      required:
+        - skuId
+        - quantity
+      properties:
+        skuId:
+          type: integer
+          description: ID варианта товара (SKU) из Product Service
+          example: 101
+        quantity:
+          type: integer
+          minimum: 1
+          description: Количество единиц товара. Минимум 1.
+          example: 1
+
+    UpdateCartItemRequest:
+      type: object
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          description: >
+            Новое количество единиц товара. Минимум 1.
+            Для удаления позиции использовать DELETE /cart/items/{itemId}.
+          example: 2
+
+    CartItemResponse:
+      type: object
+      description: Позиция корзины с актуальными данными SKU и товара
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID позиции в корзине
+          example: "item_789xyz"
+        sku:
+          $ref: '#/components/schemas/SkuSnapshot'
+        product:
+          $ref: '#/components/schemas/ProductSnapshot'
+        quantity:
+          type: integer
+          description: Текущее количество единиц в корзине
+          example: 2
+        itemTotalPrice:
+          type: integer
+          description: >
+            Стоимость позиции: priceAtAddition × quantity.
+            В минимальных единицах валюты (копейки).
+            Пример: 25998000 = 259 980,00 руб.
+          example: 25998000
+        cartTotalPrice:
+          type: integer
+          description: >
+            Итоговая сумма всей корзины после изменения.
+            В минимальных единицах валюты (копейки).
+          example: 25998000
+
+    SkuSnapshot:
+      type: object
+      description: >
+        Снимок данных SKU на момент добавления в корзину.
+        Цена фиксируется при добавлении и не меняется
+        при последующем изменении цены продавцом.
+      properties:
+        id:
+          type: integer
+          description: ID варианта товара (SKU)
+          example: 101
+        name:
+          type: string
+          description: Название варианта
+          example: "256GB Black"
+        priceAtAddition:
+          type: integer
+          description: >
+            Цена SKU на момент добавления в корзину.
+            В минимальных единицах валюты (копейки).
+            Пример: 12999000 = 129 990,00 руб.
+          example: 12999000
+        image:
+          type: string
+          description: URL главного фото SKU
+          example: "/s3/iphone15-black.jpg"
+
+    ProductSnapshot:
+      type: object
+      description: Краткая информация о товаре, к которому относится SKU
+      properties:
+        id:
+          type: integer
+          description: ID товара в Product Service
+          example: 42
+        title:
+          type: string
+          description: Название товара
+          example: "iPhone 15 Pro Max"
+
+    ErrorResponse:
+      type: object
+      description: Единый формат ошибки для всех эндпоинтов
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: >
+            Машиночитаемый код ошибки для обработки на клиенте.
+            Возможные значения: INVALID_QUANTITY, UNAUTHORIZED,
+            SKU_NOT_FOUND, SKU_ALREADY_IN_CART, SKU_NOT_AVAILABLE,
+            INSUFFICIENT_STOCK, ACCESS_DENIED, CART_ITEM_NOT_FOUND,
+            PRODUCT_NOT_AVAILABLE, SERVICE_UNAVAILABLE.
+          example: "INSUFFICIENT_STOCK"
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки для отображения пользователю
+          example: "Нельзя установить 10, доступно только 5"
