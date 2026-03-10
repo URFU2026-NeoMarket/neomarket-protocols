@@ -6,5 +6,256 @@ info:
     Проектируется синдикатом QA Corps.
     Домены: оформление заказа, статусы (state machine), отмена, история заказов.
 
-paths: {}
-# Здесь команды QA Corps описывают свои эндпоинты
+tags:
+  - name: StockReserve
+
+paths:
+  /stock/reserve/{order_id}:
+    post:
+      tags: [StockReserve]
+      summary: Зарезервировать товары по заказу
+      operationId: reserveStock
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+      responses:
+        '201':
+          description: Резерв создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '200':
+          description: Идемпотентный повтор — резерв уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Недостаточно stock
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '424':
+          description: Ошибка интеграции со складом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags: [StockReserve]
+      summary: Получить статус резерва по заказу
+      operationId: getReservation
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Статус найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '404':
+          description: Резерв не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /stock/reserve/{order_id}/commit:
+    post:
+      tags: [StockReserve]
+      summary: Подтвердить резерв и списать товар (write-off)
+      operationId: commitReservation
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Списание выполнено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Некорректный статус резерва для списания
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '424':
+          description: Ошибка интеграции со складом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /stock/reserve/{order_id}/release:
+    post:
+      tags: [StockReserve]
+      summary: Снять резерв и вернуть товар в доступный stock
+      operationId: releaseReservation
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Возврат выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Некорректный статус резерва для возврата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '424':
+          description: Ошибка интеграции со складом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    ReserveRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ReserveItem'
+        ttl_seconds:
+          type: integer
+          minimum: 60
+          default: 900
+          description: Время жизни резерва (таймаут), после которого cron снимет резерв
+
+    ReserveItem:
+      type: object
+      required: [product_id, quantity]
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+
+    Reservation:
+      type: object
+      required:
+        - order_id
+        - status
+        - created_at
+        - expires_at
+        - reserved_products
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, reserved, reservation_failed, paid, payment_failed, preparing, shipping, delivered, completed, cancelled, refunded]
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        reserved_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedProduct'
+
+    ReservedProduct:
+      type: object
+      description: Соответствует строке в таблице reserved_products
+      required: [order_id, product_id, quantity, created_at]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+
+    ProductsReservedEvent:
+      type: object
+      required: [event_id, event_type, occurred_at, payload]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [products.reserved]
+        occurred_at:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          required: [order_id, items, expires_at]
+          properties:
+            order_id:
+              type: string
+              format: uuid
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReserveItem'
+            expires_at:
+              type: string
+              format: date-time
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+x-cron-jobs:
+  - name: reservation-expirer
+    schedule: "*/1 * * * *"
+    action: "Переводит RESERVED -> EXPIRED, вызывает release в warehouse, обновляет reserved_products/статус"
