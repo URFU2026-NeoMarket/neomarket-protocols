@@ -1563,7 +1563,7 @@ paths:
                   - id: "550e8400-e29b-41d4-a716-446655440000"
                     title: "Новогодние скидки"
                     description: "Успейте купить подарки до праздников"
-                    cover_image_url: "/cdn/collections/holiday.jpg"
+                    cover_image_url: "https://cdn.neomarket.ru/collections/holiday.jpg"
                     target_url: "/collections/holiday-sale"
                     priority: 100
                     start_date: "2024-12-20"
@@ -2469,7 +2469,7 @@ components:
           description: |
             URL изображения-обложки. Может быть как относительным путем (начинается с /), 
             так и абсолютным URL. Клиент должен корректно обрабатывать оба варианта.
-          example: "/cdn/collections/hits.jpg"
+          example: "https://cdn.neomarket.ru/collections/hits.jpg"
         target_url:
           type: string
           description: "Внутренняя ссылка для перехода к списку товаров данной подборки"
