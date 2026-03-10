@@ -905,7 +905,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AlsoBoughtResponse'
               example:
-                recommendedProductIds:
+                recommended_product_ids:
                   - "550e8400-e29b-41d4-a716-446655440000"
                   - "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
                   - "6fa459ea-ee8a-3ca4-894e-db77e160355e"
