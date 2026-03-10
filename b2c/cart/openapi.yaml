@@ -6,5 +6,246 @@ info:
     Проектируется синдикатом Interface.
     Домены: корзина (CRUD), избранное, главная страница (баннеры, подборки).
 
-paths: {}
-# Здесь команды Interface описывают свои эндпоинты
+tags:
+  - name: Корзина
+    description: Операции с корзиной покупателя
+
+paths:
+  /api/v1/cart:
+    get:
+      tags:
+        - Корзина
+      summary: Просмотр корзины с актуальными ценами
+      description: |
+        Возвращает содержимое корзины текущего пользователя с актуальными данными
+        из B2B (цены, остатки, названия, фото).
+
+        B2C хранит только `(user_id, sku_id, quantity)`. Всё остальное подгружается
+        из B2B батч-запросом по списку SKU.
+
+        Недоступные товары не удаляются из корзины - они возвращаются
+        с флагом `available: false` и причиной в `unavailable_reason`.
+
+        Если B2B не отвечает или таймаутит - возвращается `500 UPSTREAM_ERROR`.
+
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: true
+          description: Идентификатор покупателя
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+
+      responses:
+        "200":
+          description: |
+            Содержимое корзины (может быть пустым - тогда `items: []` и нулевой `summary`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+              examples:
+                with_items:
+                  summary: Корзина с доступными и недоступным товаром
+                  value:
+                    items:
+                      - sku_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                        quantity: 1
+                        product_id: "550e8400-e29b-41d4-a716-446655440000"
+                        product_title: "iPhone 15 Pro Max"
+                        sku_name: "256GB Black"
+                        image: "/s3/iphone15-1.jpg"
+                        price: 12999000
+                        active_quantity: 5
+                        item_total: 12999000
+                        available: true
+                        unavailable_reason: null
+                      - sku_id: "8a4e3f9c-1a2b-4c8d-9e5f-6b7a8c9d0e1f"
+                        quantity: 2
+                        product_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                        product_title: "Чехол силиконовый"
+                        sku_name: "Прозрачный"
+                        image: "/s3/case-1.jpg"
+                        price: 299000
+                        active_quantity: 2
+                        item_total: 598000
+                        available: true
+                        unavailable_reason: null
+                      - sku_id: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+                        quantity: 1
+                        product_id: "1e2a3b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c"
+                        product_title: "Кроссовки Nike Air Max"
+                        sku_name: "42 размер"
+                        image: "/s3/nike-1.jpg"
+                        price: 899000
+                        active_quantity: 0
+                        item_total: 0
+                        available: false
+                        unavailable_reason: "OUT_OF_STOCK"
+                    summary:
+                      total_amount: 13597000
+                      total_items: 3
+                      available_items: 2
+
+                empty_cart:
+                  summary: Пустая корзина
+                  value:
+                    items: []
+                    summary:
+                      total_amount: 0
+                      total_items: 0
+                      available_items: 0
+
+        "401":
+          description: Нет заголовка `X-User-Id` или он невалидный
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: "UNAUTHORIZED"
+                message: "Missing or invalid X-User-Id"
+
+        "500":
+          description: B2B не ответил (timeout, 5xx) или внутренняя ошибка B2C
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                upstream_error:
+                  summary: B2B недоступен
+                  value:
+                    code: "UPSTREAM_ERROR"
+                    message: "Failed to fetch product data from B2B"
+                internal_error:
+                  summary: Внутренняя ошибка B2C
+                  value:
+                    code: "INTERNAL_ERROR"
+                    message: "Unexpected server error"
+
+components:
+  schemas:
+    CartItem:
+      type: object
+      description: Позиция в корзине, обогащённая данными из B2B
+      properties:
+        sku_id:
+          type: string
+          format: uuid
+          description: ID варианта (SKU) - хранится в B2C
+          example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        quantity:
+          type: integer
+          description: Количество штук, добавленных покупателем - хранится в B2C
+          minimum: 1
+          example: 1
+        product_id:
+          type: string
+          format: uuid
+          description: ID товара-родителя - из B2B
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        product_title:
+          type: string
+          description: Название товара - из B2B
+          example: "iPhone 15 Pro Max"
+        sku_name:
+          type: string
+          description: Название варианта - из B2B
+          example: "256GB Black"
+        image:
+          type: string
+          description: URL главного фото - из B2B
+          example: "/s3/iphone15-1.jpg"
+        price:
+          type: integer
+          description: Цена в копейках - из B2B
+          example: 12999000
+        active_quantity:
+          type: integer
+          description: Остаток на складе - из B2B
+          example: 5
+        item_total:
+          type: integer
+          description: "price × quantity в копейках (0, если товар недоступен) - рассчитывается B2C"
+          example: 12999000
+        available:
+          type: boolean
+          description: Можно ли оформить эту позицию - рассчитывается B2C
+          example: true
+        unavailable_reason:
+          type: string
+          nullable: true
+          description: |
+            Причина недоступности. `null`, если товар доступен.
+            Возможные значения: OUT_OF_STOCK, BLOCKED, DELETED.
+          enum:
+            - OUT_OF_STOCK
+            - BLOCKED
+            - DELETED
+            - null
+          example: null
+      required:
+        - sku_id
+        - quantity
+        - product_id
+        - product_title
+        - sku_name
+        - image
+        - price
+        - active_quantity
+        - item_total
+        - available
+        - unavailable_reason
+
+    CartSummary:
+      type: object
+      description: Итоги по корзине
+      properties:
+        total_amount:
+          type: integer
+          description: Сумма только по доступным позициям, в копейках
+          example: 13597000
+        total_items:
+          type: integer
+          description: Общее количество позиций в корзине
+          example: 3
+        available_items:
+          type: integer
+          description: Сколько позиций можно оформить
+          example: 2
+      required:
+        - total_amount
+        - total_items
+        - available_items
+
+    CartResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          description: Список позиций корзины (обогащённых данными из B2B)
+          items:
+            $ref: "#/components/schemas/CartItem"
+        summary:
+          $ref: "#/components/schemas/CartSummary"
+      required:
+        - items
+        - summary
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код ошибки
+          example: "UPSTREAM_ERROR"
+        message:
+          type: string
+          description: Описание ошибки
+          example: "Failed to fetch product data from B2B"
+      required:
+        - code
+        - message
