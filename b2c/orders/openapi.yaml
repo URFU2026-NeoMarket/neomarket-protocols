@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: B2C Marketplace API
+  title: "NeoMarket B2C: Заказы"
   version: 1.0.0
 servers:
   - url: https://api.b2c.example.com/v1
