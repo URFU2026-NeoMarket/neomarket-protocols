@@ -1396,3 +1396,69 @@ components:
             - "550e8400-e29b-41d4-a716-446655440000"
             - "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
             - "6fa459ea-ee8a-3ca4-894e-db77e160355e"
+
+# ========== ПОХОЖИЕ ТОВАРЫ ==========
+
+api/v1/products/{id}/similar:
+    get:
+      tags:
+        - Рекомендации
+      summary: Получить похожие товары
+      description: Возвращает массив товаров, алгоритмически похожих на исходный.
+      operationId: getSimilarProducts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: |
+            Уникальный идентификатор (UUID) исходного товара, для которого 
+            ищутся рекомендации. Если товар заблокирован или удален в B2B,
+            эндпоинт вернет 404.
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: limit
+          in: query
+          required: false
+          description: |
+            Ограничение на количество возвращаемых товаров.
+            Используется для подгонки под дизайн UI-карусели.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: |
+            Успешный ответ. Возвращает массив товаров. 
+            Если алгоритм не нашел похожих товаров, возвращается пустой массив (не 404).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimilarProductsResponse'
+        '400':
+          description: Невалидный запрос (ошибка валидации UUID или параметра limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Исходный товар не найден. Строить рекомендации не от чего.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Product Service (B2B) временно недоступен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Product Service (B2B) не ответил в течение установленного таймаута.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
