@@ -6,11 +6,17 @@ info:
     Проектируется синдикатом Interface.
     Домены: корзина (CRUD), избранное, главная страница (баннеры, подборки).
 
+  contact:
+    name: Interface Team
+    email: interface@neomarket.ru
+
 tags:
   - name: Избранное
     description: Операции с избранными товарами
   - name: Корзина
     description: Операции с корзиной
+  - name: Подборки
+    description: Операции с подборками товаров
   - name: Подписка
     description: Подписки на уведомления о товарах
   - name: Главная — Баннеры
@@ -309,7 +315,7 @@ paths:
   /api/v1/favorites/{product_id}/subscribe:
     post:
       tags:
-        - Subscriptions
+        - Подписка
       summary: Подписка на уведомления о товаре
       description: >
         Создаёт подписку для текущего пользователя на уведомления
@@ -873,6 +879,83 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/v1/cart/also_bought:
+    get:
+      tags:
+        - Корзина
+      summary: Получить рекомендации "покупают вместе"
+      description: |
+        Возвращает список товаров, которые покупали другие пользователи,
+        у которых в корзине были те же товары, что и у текущего пользователя.
+
+        Корзина определяется по пользователю из JWT токена.
+
+        Если рекомендации отсутствуют, возвращается пустой массив.
+
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: Максимальное количество возвращаемых рекомендаций
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+            minimum: 1
+
+      responses:
+        "200":
+          description: Рекомендации успешно получены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlsoBoughtResponse'
+              example:
+                recommended_product_ids:
+                  - "550e8400-e29b-41d4-a716-446655440000"
+                  - "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                  - "6fa459ea-ee8a-3ca4-894e-db77e160355e"
+
+        "401":
+          description: Пользователь не авторизован или JWT недействителен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: UNAUTHORIZED
+                message: Invalid or missing JWT token
+
+        "409":
+          description: Корзина пуста — невозможно построить рекомендации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: EMPTY_CART
+                message: Cannot generate recommendations for empty cart
+
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+
+        "503":
+          description: B2B сервис товаров временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: B2B_UNAVAILABLE
+                message: Product service temporarily unavailable
+
 components:
   schemas:
     # ----- СХЕМЫ ДЛЯ ИЗБРАННОГО -----
@@ -1297,3 +1380,19 @@ components:
         - collection_title
         - total_products
         - items
+
+    AlsoBoughtResponse:
+      type: object
+      required:
+        - recommended_product_ids
+      properties:
+        recommendedProductIds:
+          type: array
+          description: Список товаров, которые часто покупают вместе с товарами из корзины пользователя
+          items:
+            type: string
+            format: uuid
+          example:
+            - "550e8400-e29b-41d4-a716-446655440000"
+            - "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+            - "6fa459ea-ee8a-3ca4-894e-db77e160355e"
