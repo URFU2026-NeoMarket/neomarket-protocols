@@ -992,6 +992,194 @@ paths:
                 code: "SERVICE_UNAVAILABLE"
                 message: "Сервис временно недоступен, попробуйте позже"
 
+  /cart/validate:
+    get:
+      summary: Валидация корзины
+      description: |
+        Проверяет доступность товаров в корзине покупателя.
+        
+        **Когда вызывается:**
+        - Перед переходом к оформлению заказа (кнопка "Оформить заказ")
+        - Периодически при длительном нахождении на странице корзины
+        - После возврата пользователя к корзине через некоторое время
+        - После изменения количества товара в корзине (для проверки конкретной позиции)
+        
+        **Что проверяется:**
+        - Товар не удален
+        - Товар не заблокирован модератором
+        - Товар есть в наличии
+        - Запрошенное количество не превышает доступное
+        
+        **Идентификация корзины:**
+        Корзина пользователя определяется на основе `user_id` из JWT-токена.
+        Гостевая корзина не поддерживается — требуется авторизация.
+      operationId: validateCart
+      tags:
+        - Корзина
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cart_item_ids
+          in: query
+          description: |
+            Список идентификаторов позиций для выборочной проверки.
+            Если параметр не указан, проверяется вся корзина.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          example: ["ci_001", "ci_003"]
+      responses:
+        '200':
+          description: |
+            Валидация выполнена успешно.
+            Возвращается всегда, даже если корзина невалидна.
+            Результат валидации содержится в теле ответа.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartValidationResponse'
+              examples:
+                valid_cart:
+                  summary: Валидная корзина
+                  value:
+                    is_valid: true
+                    can_checkout: true
+                    total_items: 3
+                    validation_timestamp: "2026-01-15T14:30:00Z"
+                    issues: []
+
+                invalid_cart:
+                  summary: Проблемы с товарами в корзине
+                  value:
+                    is_valid: false
+                    can_checkout: false
+                    total_items: 4
+                    validation_timestamp: "2026-01-15T14:30:00Z"
+                    issues:
+                      - cart_item_id: "ci_001"
+                        sku_id: 101
+                        issue_type: "BLOCKED"
+                        severity: "critical"
+                        message: "Товар заблокирован модератором и недоступен для покупки"
+                        details:
+                          product_id: 42
+                          product_title: "iPhone 15 Pro Max"
+                          sku_name: "256GB Black"
+                          current_status: "BLOCKED"
+                      - cart_item_id: "ci_002"
+                        sku_id: 102
+                        issue_type: "OUT_OF_STOCK"
+                        severity: "critical"
+                        message: "Товар отсутствует в наличии"
+                        details:
+                          product_id: 42
+                          product_title: "iPhone 15 Pro Max"
+                          sku_name: "256GB White"
+                          requested_quantity: 2
+                          available_quantity: 0
+                      - cart_item_id: "ci_003"
+                        sku_id: 103
+                        issue_type: "INSUFFICIENT_STOCK"
+                        severity: "warning"
+                        message: "Доступно меньше товара, чем в корзине"
+                        details:
+                          product_id: 43
+                          product_title: "Чехол силиконовый"
+                          sku_name: "Чёрный"
+                          requested_quantity: 5
+                          available_quantity: 2
+                      - cart_item_id: "ci_004"
+                        sku_id: 999
+                        issue_type: "DELETED"
+                        severity: "critical"
+                        message: "Товар удалён продавцом"
+                        details:
+                          product_id: null
+                          product_title: null
+                          sku_name: null
+                
+                empty_cart:
+                  summary: Пустая корзина
+                  value:
+                    is_valid: true
+                    can_checkout: false
+                    total_items: 0
+                    validation_timestamp: "2026-01-15T14:30:00Z"
+                    issues: []
+        
+        '400':
+          description: Ошибка в параметрах запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_format:
+                  summary: Неверный формат
+                  value:
+                    code: "INVALID_PARAMETER"
+                    message: "Неверный формат параметра cart_item_ids. Ожидается массив строк."
+                items_not_found:
+                  summary: ID не найдены
+                  value:
+                    code: "CART_ITEMS_NOT_FOUND"
+                    message: "Указанные позиции не найдены: ci_999"
+                cart_empty:
+                  summary: Корзина пуста
+                  value:
+                    code: "CART_EMPTY"
+                    message: "Корзина пуста"
+        
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "UNAUTHORIZED"
+                message: "Требуется авторизация"
+        
+        '502':
+          description: |
+            B2B сервис вернул некорректный ответ (Bad Gateway).
+            Например, ответ не соответствует ожидаемой схеме.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "B2B_BAD_GATEWAY"
+                message: "Сервис каталога вернул некорректный ответ"
+        
+        '503':
+          description: |
+            Сервис B2B временно недоступен.
+            Невозможно провести валидацию корзины.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "B2B_SERVICE_UNAVAILABLE"
+                message: "Сервис каталога временно недоступен. Попробуйте позже"
+        
+        '504':
+          description: |
+            Таймаут при обращении к B2B сервису (Gateway Timeout).
+            B2B не ответил в течение ожидаемого времени.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "B2B_GATEWAY_TIMEOUT"
+                message: "Сервис каталога не ответил вовремя. Попробуйте позже"
+
   # ========== ГЛАВНАЯ — БАННЕРЫ (Блок И, команда Изи 90) ==========
   /api/v1/home/banners:
     get:
@@ -1828,6 +2016,174 @@ components:
           description: Название товара
           example: "iPhone 15 Pro Max"
 
+    # ----- СХЕМЫ ВАЛИДАЦИИ КОРЗИНЫ -----          
+    CartValidationResponse:
+      type: object
+      required:
+        - is_valid
+        - can_checkout
+        - total_items
+        - validation_timestamp
+        - issues
+      properties:
+        is_valid:
+          type: boolean
+          description: |
+            true - все товары доступны и валидны (нет ни одной проблемы)
+            false - есть хотя бы одна проблема (см. массив issues)
+          example: false
+        
+        can_checkout:
+          type: boolean
+          description: |
+            Можно ли оформить заказ.
+            false если:
+            - Корзина пуста (total_items = 0)
+            - Есть хотя бы один issue с severity = "critical"
+            
+            true если:
+            - Есть товары И нет критичных проблем
+            - Могут быть проблемы с severity = "warning"
+          example: false
+        
+        total_items:
+          type: integer
+          minimum: 0
+          description: Общее количество проверенных позиций
+          example: 4
+        
+        validation_timestamp:
+          type: string
+          format: date-time
+          description: Время проведения валидации (ISO 8601)
+          example: "2026-01-15T14:30:00Z"
+        
+        issues:
+          type: array
+          description: |
+            Массив проблем с товарами.
+            Пустой массив если все товары валидны.
+          items:
+            $ref: '#/components/schemas/CartValidationIssue'
+
+    CartValidationIssue:
+      type: object
+      required:
+        - cart_item_id
+        - sku_id
+        - issue_type
+        - severity
+        - message
+        - details
+      properties:
+        cart_item_id:
+          type: string
+          description: Уникальный идентификатор позиции в корзине
+          example: "ci_001"
+        
+        sku_id:
+          type: integer
+          description: ID SKU из системы B2B
+          example: 101
+        
+        issue_type:
+          type: string
+          enum:
+            - BLOCKED
+            - DELETED
+            - OUT_OF_STOCK
+            - INSUFFICIENT_STOCK
+            - ON_MODERATION
+            - VALIDATION_ERROR
+          description: |
+            Тип проблемы:
+            - BLOCKED - товар заблокирован модератором (status = BLOCKED в B2B)
+            - DELETED - SKU или Product удалён (404 от B2B)
+            - OUT_OF_STOCK - товар отсутствует в наличии (activeQuantity = 0)
+            - INSUFFICIENT_STOCK - доступно меньше, чем запрошено (activeQuantity < requested)
+            - ON_MODERATION - товар на модерации (status = ON_MODERATION в B2B)
+            - VALIDATION_ERROR - ошибка при проверке (например, 500 от B2B)
+          example: "BLOCKED"
+        
+        severity:
+          type: string
+          enum:
+            - critical
+            - warning
+          description: |
+            Критичность проблемы:
+            - critical - блокирует оформление заказа (can_checkout = false)
+            - warning - не блокирует оформление, но требует внимания пользователя
+            
+            Соответствие issue_type → severity:
+            - BLOCKED → critical
+            - DELETED → critical
+            - OUT_OF_STOCK → critical
+            - VALIDATION_ERROR → critical
+            - INSUFFICIENT_STOCK → warning
+            - ON_MODERATION → warning
+          example: "critical"
+        
+        message:
+          type: string
+          description: Человекочитаемое описание проблемы для отображения пользователю
+          example: "Товар заблокирован модератором и недоступен для покупки"
+        
+        details:
+          type: object
+          description: Дополнительные данные о проблеме (структура зависит от issue_type)
+          properties:
+            product_id:
+              type: integer
+              nullable: true
+              description: ID товара из B2B (null если товар удалён)
+              example: 42
+            
+            product_title:
+              type: string
+              nullable: true
+              description: Название товара (null если товар удалён)
+              example: "iPhone 15 Pro Max"
+            
+            sku_name:
+              type: string
+              nullable: true
+              description: Название варианта SKU (null если товар удалён)
+              example: "256GB Black"
+            
+            requested_quantity:
+              type: integer
+              description: |
+                Количество в корзине.
+                Присутствует для issue_type = OUT_OF_STOCK, INSUFFICIENT_STOCK
+              example: 2
+            
+            available_quantity:
+              type: integer
+              description: |
+                Доступное количество (из B2B).
+                Присутствует для issue_type = OUT_OF_STOCK, INSUFFICIENT_STOCK
+              example: 0
+            
+            current_status:
+              type: string
+              enum:
+                - CREATED
+                - ON_MODERATION
+                - MODERATED
+                - BLOCKED
+              description: |
+                Текущий статус товара в B2B.
+                Присутствует для issue_type = BLOCKED, ON_MODERATION
+              example: "BLOCKED"
+            
+            error:
+              type: string
+              description: |
+                Описание технической ошибки.
+                Присутствует для issue_type = VALIDATION_ERROR
+              example: "B2B service returned 500"
+            
     # ----- СХЕМЫ ДЛЯ БАННЕРОВ (Блок И, команда Изи 90) -----
     BannerListResponse:
       type: object
