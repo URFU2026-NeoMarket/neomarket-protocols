@@ -9,11 +9,11 @@ info:
 tags:
   - name: StockReserve
   - name: Notifications
+  - name: Orders
+  - name: Analytics
 
 security:
   - bearerHttpAuthentication: []
-  - name: Orders
-  - name: Analytics
 
 paths:
   /stock/reserve/{order_id}:
@@ -168,55 +168,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/NotificationEvent'
-            examples:
-              order_created:
-                summary: Заказ создан
-                value:
-                  event_id: "5f7d0d8b-4d3f-4d0d-9d6d-8f4a7c2e1b11"
-                  event_type: "order.created"
-                  event_version: 1
-                  occurred_at: "2026-03-09T10:15:30Z"
-                  source: "order-create-service"
-                  user_id: "11111111-2222-3333-4444-555555555555"
-                  order_id: "66666666-7777-8888-9999-aaaaaaaaaaaa"
-                  data:
-                    order_number: "ORD-20260309-501"
-                    total_amount: 132980.00
-                    currency: "RUB"
-                    items_count: 2
-                    delivery_type: "courier"
-                    payment_type: "card"
-              order_status_changed:
-                summary: Статус заказа изменен
-                value:
-                  event_id: "11d3c0f4-9296-4c4d-aef6-c9edc8a3e542"
-                  event_type: "order.status_changed"
-                  event_version: 1
-                  occurred_at: "2026-03-09T11:00:00Z"
-                  source: "order-status-service"
-                  user_id: "11111111-2222-3333-4444-555555555555"
-                  order_id: "66666666-7777-8888-9999-aaaaaaaaaaaa"
-                  data:
-                    order_number: "ORD-20260309-501"
-                    old_status: "CREATED"
-                    new_status: "PAID"
-                    reason: null
-                    initiator: "system"
-              order_cancelled_by_user:
-                summary: Заказ отменен пользователем
-                value:
-                  event_id: "fdf0c115-f6d6-4f71-b3a1-0c53f2043797"
-                  event_type: "order.cancelled_by_user"
-                  event_version: 1
-                  occurred_at: "2026-03-09T12:05:00Z"
-                  source: "order-cancel-service"
-                  user_id: "11111111-2222-3333-4444-555555555555"
-                  order_id: "66666666-7777-8888-9999-aaaaaaaaaaaa"
-                  data:
-                    order_number: "ORD-20260309-501"
-                    previous_status: "CREATED"
-                    cancel_reason_code: "USER_CHANGED_MIND"
-                    cancel_reason_text: "Передумал оформлять заказ"
       responses:
         '202':
           description: Событие принято в обработку
@@ -277,45 +228,6 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/NotificationEventType'
-  /orders:
-    get:
-      tags: [Orders]
-      summary: Получение списка заказов пользователя
-      operationId: getOrders
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          description: Количество записей на странице
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
-          description: Смещение для пагинации
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [pending, reserved, reservation_failed, paid, payment_failed, preparing, shipping, delivered, completed, cancelled, refunded]
-          description: Фильтр по статусу заказа
-        - name: date_from
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Начальная дата создания заказа (включительно)
-        - name: date_to
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Конечная дата создания заказа (включительно)
       responses:
         '200':
           description: Успешный ответ
@@ -334,37 +246,11 @@ paths:
         - bearerHttpAuthentication: []
       parameters:
         - name: notification_id
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/OrderSummary'
-                  total:
-                    type: integer
-                    description: Общее количество заказов (без учёта пагинации)
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-        '401':
-          description: Не авторизован
-        '403':
-          description: Доступ запрещён
-
-  /orders/{order_id}:
-    get:
-      tags: [Orders]
-      summary: Получение детальной информации о заказе
-      operationId: getOrderById
-      parameters:
-        - name: order_id
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: Идентификатор заказа
       responses:
         '200':
           description: Успешный ответ
@@ -486,7 +372,89 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Не авторизован
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Получение списка заказов пользователя
+      operationId: getOrders
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Количество записей на странице
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Смещение для пагинации
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - reserved
+              - reservation_failed
+              - paid
+              - payment_failed
+              - preparing
+              - shipping
+              - delivered
+              - completed
+              - cancelled
+              - refunded
+          description: Фильтр по статусу заказа
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Начальная дата создания заказа (включительно)
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Конечная дата создания заказа (включительно)
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '401':
+          description: Не авторизован
+
+  /orders/{order_id}:
+    get:
+      tags: [Orders]
+      summary: Получение детальной информации о заказе
+      operationId: getOrderById
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Идентификатор заказа
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
                 $ref: '#/components/schemas/OrderDetails'
+        '400':
+          description: Некорректный id заказа
         '401':
           description: Не авторизован
         '403':
@@ -504,7 +472,11 @@ paths:
           in: query
           schema:
             type: string
-            enum: [day, week, month, status]
+            enum:
+              - day
+              - week
+              - month
+              - status
             default: day
           description: Способ группировки данных (day/week/month — временная, status — по статусам)
         - name: date_from
@@ -690,7 +662,18 @@ components:
           format: float
         status:
           type: string
-          enum: [pending, reserved, reservation_failed, paid, payment_failed, preparing, shipping, delivered, completed, cancelled, refunded]
+          enum:
+            - pending
+            - reserved
+            - reservation_failed
+            - paid
+            - payment_failed
+            - preparing
+            - shipping
+            - delivered
+            - completed
+            - cancelled
+            - refunded
         item_count:
           type: integer
           description: Количество позиций в заказе
@@ -731,12 +714,30 @@ components:
           type: number
           format: float
 
+    OrderListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        total:
+          type: integer
+          description: Общее количество заказов (без учёта пагинации)
+        limit:
+          type: integer
+        offset:
+          type: integer
+
     AnalyticsTimeSeries:
       type: object
       properties:
         group_by:
           type: string
-          enum: [day, week, month]
+          enum:
+            - day
+            - week
+            - month
         data:
           type: array
           items:
@@ -759,7 +760,8 @@ components:
       properties:
         group_by:
           type: string
-          enum: [status]
+          enum:
+            - status
         data:
           type: array
           items:
@@ -767,7 +769,18 @@ components:
             properties:
               status:
                 type: string
-                enum: [pending, reserved, reservation_failed, paid, payment_failed, preparing, shipping, delivered, completed, cancelled, refunded]
+                enum:
+                  - pending
+                  - reserved
+                  - reservation_failed
+                  - paid
+                  - payment_failed
+                  - preparing
+                  - shipping
+                  - delivered
+                  - completed
+                  - cancelled
+                  - refunded
               count:
                 type: integer
               total_revenue:
