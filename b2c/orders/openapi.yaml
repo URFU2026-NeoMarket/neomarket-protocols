@@ -1,10 +1,381 @@
 openapi: 3.0.3
 info:
-  title: "NeoMarket B2C: Заказы"
-  version: "0.1"
+  title: B2C Marketplace API
+  version: 1.0.0
+servers:
+  - url: https://api.b2c.example.com/v1
   description: |
     Проектируется синдикатом QA Corps.
     Домены: оформление заказа, статусы (state machine), отмена, история заказов.
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestDTO'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDTO'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequestDTO'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseDTO'
+
+  /profile:
+    get:
+      tags: [Profile]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseDTO'
+    patch:
+      tags: [Profile]
+      security: [{bearerAuth: []}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequestDTO'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseDTO'
+
+  /addresses:
+    get:
+      tags: [Addresses]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressesPaginatedResponseDTO'
+    post:
+      tags: [Addresses]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAddressRequestDTO'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponseDTO'
+
+  /addresses/{addressId}:
+    parameters:
+      - name: addressId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      tags: [Addresses]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponseDTO'
+    put:
+      tags: [Addresses]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAddressRequestDTO'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressResponseDTO'
+    delete:
+      tags: [Addresses]
+      security: [{bearerAuth: []}]
+      responses:
+        '204': {}
+
+  /payments/methods:
+    get:
+      tags: [Payments]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodsPaginatedResponseDTO'
+    post:
+      tags: [Payments]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentMethodRequestDTO'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodResponseDTO'
+
+  /orders/history:
+    get:
+      tags: [Orders]
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: status
+          in: query
+          schema: {$ref: '#/components/schemas/OrderStatus'}
+        - name: date_from
+          in: query
+          schema: {type: string, format: date-time}
+        - name: date_to
+          in: query
+          schema: {type: string, format: date-time}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersHistoryResponseDTO'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code: {type: string}
+        message: {type: string}
+
+    UserRole:
+      type: string
+      enum: [BUYER, SELLER, ADMIN, MODERATOR]
+    
+    PaymentMethodType:
+      type: string
+      enum: [CARD, SBP, POST_PAYMENT]
+    
+    OrderStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, REFUNDED]
+    
+    DeliveryMethod:
+      type: string
+      enum: [COURIER, PICKUP, POST, EXPRESS]
+
+    LoginRequestDTO:
+      type: object
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+      required: [email, password]
+
+    LoginResponseDTO:
+      type: object
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, default: Bearer}
+        user: {$ref: '#/components/schemas/UserResponseDTO'}
+      required: [access_token, token_type, user]
+
+    RegisterRequestDTO:
+      type: object
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+      required: [email, password, first_name, last_name]
+
+    UserResponseDTO:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+        role: {$ref: '#/components/schemas/UserRole'}
+        created_at: {type: string, format: date-time}
+      required: [id, email, first_name, last_name, role, created_at]
+
+    UpdateProfileRequestDTO:
+      type: object
+      properties:
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+
+    AddressResponseDTO:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        user_id: {type: string, format: uuid}
+        title: {type: string}
+        recipient_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+        city: {type: string}
+        street: {type: string}
+        house: {type: string}
+        apartment: {type: string}
+        is_default: {type: boolean}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+      required: [id, user_id, recipient_name, phone, city, street, house, is_default, created_at, updated_at]
+
+    CreateAddressRequestDTO:
+      type: object
+      properties:
+        title: {type: string}
+        recipient_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+        city: {type: string}
+        street: {type: string}
+        house: {type: string}
+        apartment: {type: string}
+        is_default: {type: boolean, default: false}
+      required: [recipient_name, phone, city, street, house]
+
+    UpdateAddressRequestDTO:
+      type: object
+      properties:
+        title: {type: string}
+        recipient_name: {type: string}
+        phone: {type: string, pattern: '^\+?[1-9][0-9]{7,14}$'}
+        city: {type: string}
+        street: {type: string}
+        house: {type: string}
+        apartment: {type: string}
+        is_default: {type: boolean}
+
+    PaymentMethodResponseDTO:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        type: {$ref: '#/components/schemas/PaymentMethodType'}
+        last_four: {type: string}
+        cardholder_name: {type: string}
+        expiry_month: {type: integer}
+        expiry_year: {type: integer}
+        is_default: {type: boolean}
+        created_at: {type: string, format: date-time}
+      required: [id, type, is_default, created_at]
+
+    CreatePaymentMethodRequestDTO:
+      type: object
+      properties:
+        type: {$ref: '#/components/schemas/PaymentMethodType'}
+        token: {type: string}
+        is_default: {type: boolean, default: false}
+      required: [type, token]
+
+    Item:
+      type: object
+      properties:
+        product_id: {type: string, format: uuid}
+        product_name: {type: string}
+        quantity: {type: integer, minimum: 1}
+        price: {type: number, exclusiveMinimum: true}
+        total_price: {type: number, exclusiveMinimum: true}
+        prodavec: {type: string, format: uuid}
+      required: [product_id, product_name, quantity, price, total_price, prodavec]
+
+    OrderResponseDTO:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        user_id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/OrderStatus'}
+        items: {type: array, items: {$ref: '#/components/schemas/Item'}}
+        delivery_method: {$ref: '#/components/schemas/DeliveryMethod'}
+        delivery_address: {$ref: '#/components/schemas/AddressResponseDTO'}
+        delivery_cost: {type: number, minimum: 0}
+      required: [id, user_id, status, items, delivery_method, delivery_cost]
+
+    AddressesPaginatedResponseDTO:
+      type: object
+      properties:
+        total: {type: integer, minimum: 0}
+        items: {type: array, items: {$ref: '#/components/schemas/AddressResponseDTO'}}
+      required: [total, items]
+
+    PaymentMethodsPaginatedResponseDTO:
+      type: object
+      properties:
+        total: {type: integer, minimum: 0}
+        items: {type: array, items: {$ref: '#/components/schemas/PaymentMethodResponseDTO'}}
+      required: [total, items]
+
+    OrdersHistoryResponseDTO:
+      type: object
+      properties:
+        total: {type: integer, minimum: 0}
+        items: {type: array, items: {$ref: '#/components/schemas/OrderResponseDTO'}}
+        applied_filters: {type: object}
+        query_time_ms: {type: integer, minimum: 0}
+      required: [total, items]
 
 tags:
   - name: StockReserve
