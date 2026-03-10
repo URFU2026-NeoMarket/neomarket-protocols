@@ -13,6 +13,8 @@ tags:
     description: Операции с корзиной
   - name: Подписка
     description: Подписки на уведомления о товарах
+  - name: Главная страница
+    description: Подборки и баннеры для главной  
 
 paths:
   # ========== ИЗБРАННОЕ ==========
@@ -669,6 +671,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+
+  # ========== ГЛАВНАЯ СТРАНИЦА ==========
+  /api/v1/main/collections:
+    get:
+      tags:
+        - Главная страница
+      summary: Получить список подборок
+      description: >
+        Возвращает список тематических подборок для витрины главной страницы.
+        Сервис автоматически фильтрует неактивные записи и сортирует результат
+        по полю `priority`.
+      operationId: getCollections
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Количество подборок для возврата.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          description: Смещение для пагинации.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Успешный возврат списка подборок.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+              example:
+                metadata:
+                  total_count: 42
+                  limit: 10
+                  offset: 0
+                collections:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    title: "Новогодние скидки"
+                    description: "Успейте купить подарки до праздников"
+                    cover_image_url: "/cdn/collections/holiday.jpg"
+                    target_url: "/collections/holiday-sale"
+                    priority: 100
+                    start_date: "2024-12-20"
+        '400':
+          description: Невалидные параметры запроса.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INVALID_PARAMETER"
+                message: "Параметр limit должен быть положительным числом"
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: "INTERNAL_SERVER_ERROR"
+                message: "Произошла непредвиденная ошибка, попробуйте позже"
+
 components:
   schemas:
     # ----- СХЕМЫ ДЛЯ ИЗБРАННОГО -----
@@ -960,3 +1031,70 @@ components:
       required:
         - code
         - message
+
+  # ----- СХЕМЫ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ -----
+    Collection:
+      type: object
+      required:
+        - id
+        - title
+        - cover_image_url
+        - target_url
+        - priority
+        - start_date
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          example: "Новогодние скидки"
+        description:
+          type: string
+          example: "Успейте купить подарки до праздников"
+        cover_image_url:
+          type: string
+          format: uri
+          description: |
+            URL изображения-обложки. Может быть относительным или абсолютным.
+          example: "/cdn/collections/hits.jpg"
+        target_url:
+          type: string
+          example: "/collections/holiday-sale"
+        priority:
+          type: integer
+          description: Чем выше число, тем выше подборка в списке.
+          example: 100
+        start_date:
+          type: string
+          format: date
+          description: Дата начала показа подборки.
+          example: "2024-12-20"
+
+    CollectionsResponse:
+      type: object
+      required:
+        - metadata
+        - collections
+      properties:
+        metadata:
+          type: object
+          required:
+            - total_count
+            - limit
+            - offset
+          properties:
+            total_count:
+              type: integer
+              example: 42
+            limit:
+              type: integer
+              example: 10
+            offset:
+              type: integer
+              example: 0
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collection'
