@@ -886,6 +886,93 @@ paths:
         '403':
           description: Недостаточно прав
 
+  /orders/{order_id}/cancel:
+    post:
+      summary: Отменить заказ
+      description: |
+        Инициирует отмену заказа. Поведение зависит от текущего статуса заказа:
+        1. CREATED: Снятие брони, товары доступны. Статус -> CANCELLED.
+        2. PAID / ASSEMBLING: Возврат денег, снятие брони, товары доступны. Статус -> CANCELLED.
+        3. DELIVERING / DELIVERED: Возврат денег, товар отправляется на склад. Статус -> CANCELLED. 
+           Бронь снимается только после физического возврата на склад.
+      security:
+        - bearerHttpAuthentication: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Уникальный идентификатор заказа
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Заказ успешно отменен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResponse'
+        '400':
+          description: Некорректный запрос (например, заказ уже отменен)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Нет прав на отмену данного заказа
+        '404':
+          description: Заказ не найден
+        '422':
+          description: Невозможно отменить заказ в текущем статусе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /orders/{order_id}/returns:
+    post:
+      summary: Создать заявку на возврат (после получения)
+      description: |
+        Используется, если покупатель получил товар (статус DELIVERED) и хочет его вернуть.
+        Создает сущность Возврата со статусом PENDING. Требует одобрения администратора.
+        Деньги не возвращаются до одобрения. Товар не разбронируется до возврата на склад.
+      security:
+        - bearerHttpAuthentication: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnRequestCreate'
+      responses:
+        '201':
+          description: Заявка на возврат создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnRequest'
+        '400':
+          description: Некорректные данные формы
+        '401':
+          description: Не авторизован
+        '403':
+          description: Нет прав (например, заказ еще не доставлен)
+        '404':
+          description: Заказ не найден
+
 components:
   securitySchemes:
     bearerHttpAuthentication:
@@ -1659,6 +1746,80 @@ components:
         message:
           type: string
           example: "Invalid request payload"
+
+    ReturnRequestStatus:
+      type: string
+      enum:
+        - PENDING
+        - APPROVED
+        - REJECTED
+        - COMPLETED
+      description: Статус заявки на возврат
+
+    CancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Причина отмены (опционально)
+
+    CancelResponse:
+      type: object
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, reserved, reservation_failed, paid, payment_failed, preparing, shipping, delivered, completed, cancelled, refunded]
+        inventory_released:
+          type: boolean
+          description: |
+            true: Товары сразу стали доступны к покупке (CREATED, PAID, ASSEMBLING).
+            false: Товары будут доступны после физического возврата на склад (DELIVERING, DELIVERED).
+        refund_initiated:
+          type: boolean
+          description: Инициирован ли возврат денежных средств
+
+    ReturnRequestCreate:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          description: Причина возврата из формы пользователя
+        comment:
+          type: string
+          description: Дополнительный комментарий
+        photos:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Ссылки на фото товара (опционально)
+
+    ReturnRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ReturnRequestStatus'
+        reason:
+          type: string
+        rejection_reason:
+          type: string
+          description: Причина отказа администратора (заполняется при REJECTED)
+        created_at:
+          type: string
+          format: date-time
+
 
 x-cron-jobs:
   - name: reservation-expirer
