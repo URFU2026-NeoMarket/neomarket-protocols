@@ -1006,6 +1006,55 @@ paths:
                 code: "B2B_GATEWAY_TIMEOUT"
                 message: "Сервис каталога не ответил вовремя. Попробуйте позже"
 
+#----РАСЧЁТ СУММЫ СКИДОК-----
+/api/v1/cart/calculate:
+    post:
+      summary: Calculate cart totals
+      description: |
+        Пересчитывает корзину пользователя.
+
+        Операция идемпотентная — состояние корзины не изменяется.
+        При пересчёте B2C запрашивает актуальные цены и остатки из B2B,
+        применяет промокод и возвращает breakdown по каждому товару.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculateRequest'
+      responses:
+        '200':
+          description: Cart calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculateResponse'
+
+#----ПРИМЕНЕНИЕ ПРОМОКОДОВ----
+  /api/v1/cart/promo:
+    post:
+      summary: Apply promo code
+      description: |
+        Применяет промокод к корзине пользователя.
+        Промокод сохраняется в состоянии корзины и будет
+        учитываться при последующих пересчётах.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoRequest'
+      responses:
+        '200':
+          description: Promo applied or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoResponse'
+        '400':
+          description: Invalid request
+
+
   # ========== ГЛАВНАЯ — БАННЕРЫ (Блок И, команда Изи 90) ==========
   /api/v1/home/banners:
     get:
@@ -2302,6 +2351,114 @@ components:
         - items
         - total
 
+    #-----ПЕРЕСЧЕТ КОРЗИНЫ-----
+    CalculateRequest:
+      type: object
+      description: Запрос на пересчёт корзины
+      properties:
+        promo_code:
+          type: string
+          description: Промокод для применения
+          example: SALE10
+
+    CalculateResponse:
+      type: object
+      description: Результат пересчёта корзины
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalculatedItem'
+        summary:
+          $ref: '#/components/schemas/CartSummary'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Warning'
+
+    CalculatedItem:
+      type: object
+      description: Результат расчёта конкретного товара
+      properties:
+        sku_id:
+          type: integer
+          example: 101
+        quantity:
+          type: integer
+          example: 2
+        unit_price:
+          type: integer
+          description: Актуальная цена за единицу
+          example: 13999000
+        total_price:
+          type: integer
+          description: Цена без скидок
+          example: 27998000
+        discount:
+          type: integer
+          description: Скидка применённая к товару
+          example: 2000000
+        final_price:
+          type: integer
+          description: Итоговая цена
+          example: 25998000
+        status:
+          type: string
+          description: Статус доступности товара
+          enum:
+            - OK
+            - OUT_OF_STOCK
+            - NOT_ENOUGH_STOCK
+            - PRICE_CHANGED
+            - BLOCKED
+
+    CartSummary:
+      type: object
+      description: Итоговая информация по корзине
+      properties:
+        items_total:
+          type: integer
+          example: 27998000
+        discount_total:
+          type: integer
+          example: 2000000
+        final_total:
+          type: integer
+          example: 25998000
+
+    Warning:
+      type: object
+      description: Предупреждение при расчёте корзины
+      properties:
+        code:
+          type: string
+          example: PRICE_CHANGED
+        message:
+          type: string
+          example: Цена товара изменилась после добавления в корзину
+
+    PromoRequest:
+      type: object
+      required:
+        - promo_code
+      properties:
+        promo_code:
+          type: string
+          example: SALE10
+
+    PromoResponse:
+      type: object
+      description: Результат применения промокода
+      properties:
+        status:
+          type: string
+          enum:
+            - APPLIED
+            - INVALID
+        reason:
+          type: string
+          nullable: true
+          example: EXPIRED
     # ----- СХЕМЫ ДЛЯ ПОДБОРОК -----
     Collection:
       type: object
