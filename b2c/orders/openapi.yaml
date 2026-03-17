@@ -1799,149 +1799,148 @@ x-cron-jobs:
     
     action: "Переводит RESERVED -> EXPIRED, вызывает release в warehouse, обновляет reserved_products/статус"
 
-{
-  "info": {
-    "name": "Order Checkout API (Екб Магазин)",
-    "description": "Оформление заказа: доставка + оплата",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "https://your-api.com/api"
-    },
-    {
-      "key": "orderId",
-      "value": "order_123456"
-    }
-  ],
-  "item": [
-    {
-      "name": "1. Способы оплаты",
-      "request": {
-        "method": "GET",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "url": {
-          "raw": "{{baseUrl}}/payment-methods",
-          "host": ["{{baseUrl}}"],
-          "path": ["payment-methods"]
-        }
-      }
-    },
-    {
-      "name": "2. Пункты самовывоза",
-      "request": {
-        "method": "GET",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "url": {
-          "raw": "{{baseUrl}}/delivery-points",
-          "host": ["{{baseUrl}}"],
-          "path": ["delivery-points"]
-        }
-      }
-    },
-    {
-      "name": "3. Выбор доставки (Курьер)",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Статус 200', () => {",
-              "  pm.response.to.have.status(200);",
-              "});",
-              "const jsonData = pm.response.json();",
-              "pm.collectionVariables.set('totalAmount', jsonData.totalAmount);"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "body": {
-          "mode": "raw",
-          "raw": JSON.stringify({
-            "deliveryType": "courier",
-            "address": {
-              "street": "Ленина",
-              "house": "50",
-              "city": "Екб",
-              "postcode": "620000"
-            }
-          })
-        },
-        "url": {
-          "raw": "{{baseUrl}}/orders/{{orderId}}/shipping",
-          "host": ["{{baseUrl}}"],
-          "path": ["orders", "{{orderId}}", "shipping"]
-        }
-      }
-    },
-    {
-      "name": "4. Выбор доставки (Самовывоз)",
-      "request": {
-        "method": "POST",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "body": {
-          "mode": "raw",
-          "raw": JSON.stringify({
-            "deliveryType": "pickup",
-            "pickupPointId": "point_1"
-          })
-        },
-        "url": {
-          "raw": "{{baseUrl}}/orders/{{orderId}}/shipping",
-          "host": ["{{baseUrl}}"],
-          "path": ["orders", "{{orderId}}", "shipping"]
-        }
-      }
-    },
-    {
-      "name": "5. Инициировать оплату (Карта)",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Получили ссылку на оплату', () => {",
-              "  const jsonData = pm.response.json();",
-              "  pm.expect(jsonData.paymentUrl).to.exist;",
-              "  console.log('Оплатить по ссылке:', jsonData.paymentUrl);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "body": {
-          "mode": "raw",
-          "raw": JSON.stringify({
-            "paymentMethod": "card",
-            "paymentGateway": "mock"
-          })
-        },
-        "url": {
-          "raw": "{{baseUrl}}/orders/{{orderId}}/payment",
-          "host": ["{{baseUrl}}"],
-          "path": ["orders", "{{orderId}}", "payment"]
-        }
-      }
-    },
-    {
-      "name": "6. Подтвердить заказ",
-      "request": {
-        "method": "PUT",
-        "header": [{"key": "Content-Type", "value": "application/json"}],
-        "url": {
-          "raw": "{{baseUrl}}/orders/{{orderId}}/confirm",
-          "host": ["{{baseUrl}}"],
-          "path": ["orders", "{{orderId}}", "confirm"]
-        }
-      }
-    }
-  ]
-}
+  /orders/{order_id}/shipping:
+    post:
+      tags: [Orders]
+      summary: Выбор типа доставки
+      description: Выбор доставки (курьер или самовывоз) и расчет стоимости
+      operationId: setOrderShipping
+      security:
+        - bearerHttpAuthentication: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deliveryType
+              properties:
+                deliveryType:
+                  type: string
+                  enum: [courier, pickup]
+                address:
+                  type: object
+                  description: Адрес для курьерской доставки
+                  properties:
+                    street:
+                      type: string
+                    house:
+                      type: string
+                    city:
+                      type: string
+                    postcode:
+                      type: string
+                pickupPointId:
+                  type: string
+                  description: ID пункта самовывоза
+      responses:
+        '200':
+          description: Доставка выбрана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveryType:
+                    type: string
+                  deliveryCost:
+                    type: number
+                  totalAmount:
+                    type: number
+        '400':
+          description: Некорректные данные доставки
+        '404':
+          description: Заказ не найден
+
+  /orders/{order_id}/payment:
+    post:
+      tags: [Orders]
+      summary: Инициировать оплату
+      description: Создает платеж через платежный шлюз (mock или реальный)
+      operationId: createOrderPayment
+      security:
+        - bearerHttpAuthentication: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentMethod
+              properties:
+                paymentMethod:
+                  type: string
+                  enum: [card, sbp, cash]
+                paymentGateway:
+                  type: string
+                  example: mock
+      responses:
+        '200':
+          description: Платеж создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                  paymentUrl:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, paid, failed]
+        '400':
+          description: Ошибка платежа
+        '404':
+          description: Заказ не найден
+
+  /orders/{order_id}/confirm:
+    put:
+      tags: [Orders]
+      summary: Подтвердить заказ
+      description: Финальное подтверждение заказа после выбора доставки и оплаты
+      operationId: confirmOrder
+      security:
+        - bearerHttpAuthentication: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ подтвержден
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:
+                    type: string
+                  status:
+                    type: string
+                    example: confirmed
+        '400':
+          description: Заказ нельзя подтвердить
+        '404':
+          description: Заказ не найден
+
 
