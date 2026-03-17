@@ -1,9 +1,10 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
   title: NeoMarket Moderation
-  version: "1.0"
-  description: |
-    Модуль модерации товаров.
+  version: 1.0.0
+  description: 
+  API для модерации товаров с поддержкой снимков и событий
+  Модуль модерации товаров.
 
     Логика работы:
     1. Moderation узнаёт что товар создан или изменён (формат события — ???)
@@ -12,73 +13,721 @@ info:
     4. Модератор берёт карточку из очереди и проверяет
     5. Одобряет или блокирует — и сообщает B2B (формат события — ???)
 
+servers:
+  - url: https://moderation-api.example.com/v1
+    description: Moderation service
+  - url: https://b2b-api.example.com/v1
+    description: B2B service (external)
+
+tags:
+  - name: Moderation
+    description: Управление модерацией товаров
+  - name: Snapshots
+    description: Снимки товаров
+  - name: Webhooks
+    description: Вебхуки для событий
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    # --- События ---
+    ProductEvent:
+      type: object
+      discriminator:
+        propertyName: event_type
+      required:
+        - event_id
+        - event_type
+        - product_id
+        - timestamp
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор события
+        event_type:
+          type: string
+          enum:
+            - product.created
+            - product.updated
+            - product.deleted
+        product_id:
+          type: integer
+          description: ID товара в B2B системе
+        timestamp:
+          type: string
+          format: date-time
+        producer:
+          type: string
+          description: Источник события (b2b-service)
+
+    ProductCreatedEvent:
+      allOf:
+        - $ref: '#/components/schemas/ProductEvent'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                created_by:
+                  type: integer
+                initial_status:
+                  type: string
+
+    ProductUpdatedEvent:
+      allOf:
+        - $ref: '#/components/schemas/ProductEvent'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                changed_fields:
+                  type: array
+                  items:
+                    type: string
+                updated_by:
+                  type: integer
+
+    # --- Модерация ---
+    ModerationStatus:
+      type: string
+      enum:
+        - pending      # Ожидает модерации
+        - approved     # Одобрено
+        - rejected     # Отклонено
+        - changes_required  # Требуются изменения
+        - draft        # Черновик
+
+    ProductSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_id:
+          type: integer
+          description: ID товара в B2B
+        version:
+          type: integer
+          description: Версия снимка
+        data:
+          type: object
+          description: Полные данные товара из B2B
+        hash:
+          type: string
+          description: Хеш данных для обнаружения изменений
+        created_at:
+          type: string
+          format: date-time
+        source_event:
+          $ref: '#/components/schemas/ProductEvent'
+
+    ModerationTask:
+      type: object
+      required:
+        - product_id
+        - snapshot_id
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_id:
+          type: integer
+        snapshot_id:
+          type: integer
+        previous_snapshot_id:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ModerationStatus'
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+        assigned_to:
+          type: integer
+          nullable: true
+        assigned_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ModerationDecision:
+      type: object
+      required:
+        - decision
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected, changes_required]
+        comment:
+          type: string
+          maxLength: 1000
+          description: Комментарий модератора
+        reject_reason:
+          type: string
+          enum:
+            - inappropriate_content
+            - poor_quality
+            - incorrect_category
+            - trademark_violation
+            - prohibited_item
+            - other
+        required_changes:
+          type: array
+          items:
+            type: string
+          description: Список необходимых изменений
+        moderator_id:
+          type: integer
+
+    ModerationResultEvent:
+      type: object
+      required:
+        - event_id
+        - event_type
+        - product_id
+        - decision
+        - timestamp
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum:
+            - moderation.approved
+            - moderation.rejected
+            - moderation.changes_required
+        product_id:
+          type: integer
+        decision:
+          $ref: '#/components/schemas/ModerationDecision'
+        snapshot_id:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    # --- API ответы ---
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            pages:
+              type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  parameters:
+    ProductIdParam:
+      name: product_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: ID товара
+
+    TaskIdParam:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: ID задачи модерации
+
+  responses:
+    NotFoundError:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+security:
+  - bearerAuth: []
+  - apiKey: []
+
 paths:
-  /api/v1/product-moderation/get-next:
+  # --- Webhook для приема событий от B2B ---
+  /webhooks/b2b/product-events:
     post:
-      summary: Следующая карточка из очереди
-      tags: [Queue]
+      summary: Прием событий о товарах от B2B системы
+      operationId: receiveProductEvent
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/ProductCreatedEvent'
+                - $ref: '#/components/schemas/ProductUpdatedEvent'
+            examples:
+              created:
+                value:
+                  event_id: "123e4567-e89b-12d3-a456-426614174000"
+                  event_type: "product.created"
+                  product_id: 12345
+                  timestamp: "2024-01-15T10:30:00Z"
+                  producer: "b2b-service"
+                  data:
+                    created_by: 42
+                    initial_status: "draft"
+              updated:
+                value:
+                  event_id: "123e4567-e89b-12d3-a456-426614174001"
+                  event_type: "product.updated"
+                  product_id: 12345
+                  timestamp: "2024-01-15T11:45:00Z"
+                  producer: "b2b-service"
+                  data:
+                    changed_fields: ["name", "price", "description"]
+                    updated_by: 42
       responses:
-        "200":
-          description: Карточка для проверки
+        '202':
+          description: Событие принято в обработку
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL для проверки статуса обработки
+        '400':
+          description: Невалидное событие
           content:
             application/json:
               schema:
-                type: object
-                # Формат ответа — проектируется
-        "204":
-          description: Очередь пуста
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
 
-  /api/v1/products/{id}/approve:
-    post:
-      summary: Одобрить товар
-      tags: [Decisions]
+  # --- API для работы с задачами модерации ---
+  /moderation/tasks:
+    get:
+      summary: Получение списка задач модерации
+      operationId: getModerationTasks
+      tags:
+        - Moderation
       parameters:
-        - name: id
-          in: path
-          required: true
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ModerationStatus'
+          description: Фильтр по статусам
+        - name: product_id
+          in: query
           schema:
             type: integer
+          description: Фильтр по товару
+        - name: assigned_to
+          in: query
+          schema:
+            type: integer
+          description: Фильтр по модератору
+        - name: priority_min
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+        - name: created_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: created_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, priority, product_id]
+            default: created_at
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
       responses:
-        "200":
-          description: Товар одобрен, статус → MODERATED
-        "404":
-          description: Товар не найден в очереди
+        '200':
+          description: Список задач
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ModerationTask'
 
-  /api/v1/products/{id}/decline:
     post:
-      summary: Заблокировать товар (с причиной)
-      tags: [Decisions]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      summary: Создание задачи модерации (ручной ввод)
+      operationId: createModerationTask
+      tags:
+        - Moderation
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              # Что нужно, чтобы продавец понял что исправить?
-              # Достаточно общей причины — или надо указать конкретные поля?
+              required:
+                - product_id
+              properties:
+                product_id:
+                  type: integer
+                priority:
+                  type: integer
+                  default: 5
+                notes:
+                  type: string
       responses:
-        "200":
-          description: Товар заблокирован, статус → BLOCKED
-        "404":
-          description: Товар не найден в очереди
-
-  /api/v1/product-blocking-reasons:
-    get:
-      summary: Список причин блокировки
-      tags: [Reference]
-      responses:
-        "200":
-          description: Список причин
+        '201':
+          description: Задача создана
+          headers:
+            Location:
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  # Формат — проектируется
+                $ref: '#/components/schemas/ModerationTask'
+
+  /moderation/tasks/{task_id}:
+    get:
+      summary: Получение деталей задачи
+      operationId: getModerationTask
+      tags:
+        - Moderation
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      responses:
+        '200':
+          description: Детали задачи
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationTask'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      summary: Обновление задачи (назначение модератора)
+      operationId: updateModerationTask
+      tags:
+        - Moderation
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assigned_to:
+                  type: integer
+                  nullable: true
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+      responses:
+        '200':
+          description: Задача обновлена
+
+  /moderation/tasks/{task_id}/decide:
+    post:
+      summary: Принять решение по задаче
+      operationId: makeModerationDecision
+      tags:
+        - Moderation
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationDecision'
+      responses:
+        '200':
+          description: Решение принято
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  task:
+                    $ref: '#/components/schemas/ModerationTask'
+                  notification_sent:
+                    type: boolean
+        '400':
+          description: Некорректное решение
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Задача уже решена
+
+  /moderation/tasks/queue:
+    get:
+      summary: Получить следующую задачу из очереди
+      operationId: getNextTask
+      tags:
+        - Moderation
+      parameters:
+        - name: moderator_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: priority_threshold
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+      responses:
+        '200':
+          description: Следующая задача
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationTask'
+        '204':
+          description: Нет задач в очереди
+
+  # --- API для работы со снимками ---
+  /moderation/snapshots/product/{product_id}:
+    get:
+      summary: Получить все снимки товара
+      operationId: getProductSnapshots
+      tags:
+        - Snapshots
+      parameters:
+        - $ref: '#/components/parameters/ProductIdParam'
+        - name: include_data
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Включить полные данные
+      responses:
+        '200':
+          description: Список снимков
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product_id:
+                    type: integer
+                  current_snapshot:
+                    $ref: '#/components/schemas/ProductSnapshot'
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductSnapshot'
+
+  /moderation/snapshots/{snapshot_id}:
+    get:
+      summary: Получить снимок по ID
+      operationId: getSnapshot
+      tags:
+        - Snapshots
+      parameters:
+        - name: snapshot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Данные снимка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSnapshot'
+
+  /moderation/snapshots/{snapshot_id}/diff:
+    get:
+      summary: Получить различия между снимками
+      operationId: getSnapshotDiff
+      tags:
+        - Snapshots
+      parameters:
+        - name: snapshot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: compare_with
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: ID снимка для сравнения
+      responses:
+        '200':
+          description: Различия
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot_a_id:
+                    type: integer
+                  snapshot_b_id:
+                    type: integer
+                  differences:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        old_value:
+                          type: any
+                        new_value:
+                          type: any
+                        change_type:
+                          type: string
+                          enum: [added, removed, modified]
+
+  # --- API для уведомления B2B ---
+  /webhooks/b2b/moderation-result:
+    post:
+      summary: Отправка результата модерации в B2B
+      operationId: sendModerationResult
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationResultEvent'
+      responses:
+        '202':
+          description: Результат принят
+        '400':
+          description: Ошибка в данных
+
+  # --- Статистика ---
+  /moderation/stats:
+    get:
+      summary: Статистика модерации
+      operationId: getModerationStats
+      tags:
+        - Moderation
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: week
+        - name: moderator_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                  total_tasks:
+                    type: integer
+                  pending_tasks:
+                    type: integer
+                  completed_tasks:
+                    type: integer
+                  avg_decision_time:
+                    type: number
+                    description: Среднее время принятия решения (секунды)
+                  decisions_by_type:
+                    type: object
+                    properties:
+                      approved:
+                        type: integer
+                      rejected:
+                        type: integer
+                      changes_required:
+                        type: integer
+                  top_reject_reasons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        reason:
+                          type: string
+                        count:
+                          type: integer
