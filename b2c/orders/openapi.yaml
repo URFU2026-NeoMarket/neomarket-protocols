@@ -6,6 +6,7 @@ info:
     Проектируется синдикатом QA Corps.
     Домены: оформление заказа, статусы (state machine), отмена, история заказов.
 tags:
+  - name: Catalog
   - name: Auth
   - name: Profile
   - name: Addresses
@@ -17,6 +18,122 @@ tags:
 security:
   - bearerHttpAuthentication: []
 paths:
+  /catalog/search:
+    get:
+      tags: [Catalog]
+      summary: Поиск товаров в каталоге
+      description: |
+        Поиск товаров с поддержкой:
+        - Полнотекстового поиска (по названию, описанию, артикулу)
+        - Фильтрации по цене, категории, бренду, наличию
+        - Пагинации и сортировки
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Поисковый запрос (текст)
+        - name: category_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по категории
+        - name: brand_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по бренду
+        - name: min_price
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+          description: Минимальная цена
+        - name: max_price
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+          description: Максимальная цена
+        - name: in_stock
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Только товары в наличии
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [price_asc, price_desc, popularity, newest, rating]
+            default: popularity
+          description: Сортировка результатов
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 24
+            maximum: 100
+          description: Количество товаров на странице
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Смещение для пагинации
+      responses:
+        '200':
+          description: Успешный ответ со списком товаров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogSearchResponse'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Получить детальную информацию о товаре
+      description: Возвращает полную информацию о товаре для карточки (описание, характеристики, отзывы, рекомендации).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Уникальный идентификатор товара
+      responses:
+        '200':
+          description: Детальная информация о товаре
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetails'
+        '404':
+          description: Товар не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Существующие пути (без изменений)
   /auth/login:
     post:
       tags: [Auth]
@@ -778,6 +895,7 @@ paths:
           description: Нет прав (например, заказ еще не доставлен)
         '404':
           description: Заказ не найден
+
 components:
   securitySchemes:
     bearerAuth:
@@ -789,6 +907,198 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    # ========== СХЕМЫ ДЛЯ КАТАЛОГА ==========
+    CatalogSearchResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPreview'
+        total:
+          type: integer
+          description: Общее количество найденных товаров (без учета пагинации)
+        limit:
+          type: integer
+        offset:
+          type: integer
+        facets:
+          $ref: '#/components/schemas/SearchFacets'
+      required: [items, total, limit, offset]
+
+    ProductPreview:
+      type: object
+      description: Краткая информация о товаре для списка (поиск, каталог)
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        main_image:
+          type: string
+          format: uri
+        price:
+          type: number
+        old_price:
+          type: number
+          nullable: true
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+        reviews_count:
+          type: integer
+        in_stock:
+          type: boolean
+        brand_name:
+          type: string
+      required: [id, name, price, in_stock]
+
+    ProductDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProductPreview'
+        - type: object
+          properties:
+            description:
+              type: string
+            characteristics:
+              type: array
+              items:
+                $ref: '#/components/schemas/Characteristic'
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            category:
+              $ref: '#/components/schemas/Category'
+            brand:
+              $ref: '#/components/schemas/Brand'
+            recommended_products:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductPreview'
+            attributes:
+              type: object
+              additionalProperties: true
+          required: [description, characteristics, images]
+
+    SearchFacets:
+      type: object
+      description: Агрегированные данные для фильтров (выдаются вместе с результатами поиска)
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryFacet'
+        brands:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrandFacet'
+        price_range:
+          $ref: '#/components/schemas/PriceRange'
+
+    CategoryFacet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        count:
+          type: integer
+
+    BrandFacet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        count:
+          type: integer
+
+    PriceRange:
+      type: object
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    Brand:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        logo:
+          type: string
+          format: uri
+
+    ProductAddedToCartEvent:
+      type: object
+      description: Событие, которое публикуется при добавлении товара в корзину
+      required:
+        - event_id
+        - event_type
+        - occurred_at
+        - user_id
+        - product_id
+        - quantity
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [product.added_to_cart]
+        occurred_at:
+          type: string
+          format: date-time
+        user_id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        price_at_moment:
+          type: number
+          description: Цена товара в момент добавления
+
+    # Существующие схемы (без изменений)
     ErrorResponse:
       type: object
       properties:
@@ -1799,148 +2109,149 @@ x-cron-jobs:
     
     action: "Переводит RESERVED -> EXPIRED, вызывает release в warehouse, обновляет reserved_products/статус"
 
-x-postman-collection:
-  info:
-    name: "Order Checkout API (Екб Магазин)"
-    description: "Оформление заказа: доставка + оплата"
-    schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-
-  variable:
-    - key: baseUrl
-      value: https://your-api.com/api
-    - key: orderId
-      value: order_123456
-
-  item:
-    - name: "1. Способы оплаты"
-      request:
-        method: GET
-        header:
-          - key: Content-Type
-            value: application/json
-        url:
-          raw: "{{baseUrl}}/payment-methods"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - payment-methods
-
-    - name: "2. Пункты самовывоза"
-      request:
-        method: GET
-        header:
-          - key: Content-Type
-            value: application/json
-        url:
-          raw: "{{baseUrl}}/delivery-points"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - delivery-points
-
-    - name: "3. Выбор доставки (Курьер)"
-      event:
-        - listen: test
-          script:
-            exec:
-              - "pm.test('Статус 200', () => {"
-              - "  pm.response.to.have.status(200);"
-              - "});"
-              - "const jsonData = pm.response.json();"
-              - "pm.collectionVariables.set('totalAmount', jsonData.totalAmount);"
-      request:
-        method: POST
-        header:
-          - key: Content-Type
-            value: application/json
-        body:
-          mode: raw
-          raw: |
-            {
-              "deliveryType": "courier",
-              "address": {
-                "street": "Ленина",
-                "house": "50",
-                "city": "Екб",
-                "postcode": "620000"
-              }
+{
+  "info": {
+    "name": "Order Checkout API (Екб Магазин)",
+    "description": "Оформление заказа: доставка + оплата",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://your-api.com/api"
+    },
+    {
+      "key": "orderId",
+      "value": "order_123456"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Способы оплаты",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "{{baseUrl}}/payment-methods",
+          "host": ["{{baseUrl}}"],
+          "path": ["payment-methods"]
+        }
+      }
+    },
+    {
+      "name": "2. Пункты самовывоза",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "{{baseUrl}}/delivery-points",
+          "host": ["{{baseUrl}}"],
+          "path": ["delivery-points"]
+        }
+      }
+    },
+    {
+      "name": "3. Выбор доставки (Курьер)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Статус 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const jsonData = pm.response.json();",
+              "pm.collectionVariables.set('totalAmount', jsonData.totalAmount);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "deliveryType": "courier",
+            "address": {
+              "street": "Ленина",
+              "house": "50",
+              "city": "Екб",
+              "postcode": "620000"
             }
-        url:
-          raw: "{{baseUrl}}/orders/{{orderId}}/shipping"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - orders
-            - "{{orderId}}"
-            - shipping
-
-    - name: "4. Выбор доставки (Самовывоз)"
-      request:
-        method: POST
-        header:
-          - key: Content-Type
-            value: application/json
-        body:
-          mode: raw
-          raw: |
-            {
-              "deliveryType": "pickup",
-              "pickupPointId": "point_1"
-            }
-        url:
-          raw: "{{baseUrl}}/orders/{{orderId}}/shipping"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - orders
-            - "{{orderId}}"
-            - shipping
-
-    - name: "5. Инициировать оплату (Карта)"
-      event:
-        - listen: test
-          script:
-            exec:
-              - "pm.test('Получили ссылку на оплату', () => {"
-              - "  const jsonData = pm.response.json();"
-              - "  pm.expect(jsonData.paymentUrl).to.exist;"
-              - "  console.log('Оплатить по ссылке:', jsonData.paymentUrl);"
-              - "});"
-      request:
-        method: POST
-        header:
-          - key: Content-Type
-            value: application/json
-        body:
-          mode: raw
-          raw: |
-            {
-              "paymentMethod": "card",
-              "paymentGateway": "mock"
-            }
-        url:
-          raw: "{{baseUrl}}/orders/{{orderId}}/payment"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - orders
-            - "{{orderId}}"
-            - payment
-
-    - name: "6. Подтвердить заказ"
-      request:
-        method: PUT
-        header:
-          - key: Content-Type
-            value: application/json
-        url:
-          raw: "{{baseUrl}}/orders/{{orderId}}/confirm"
-          host:
-            - "{{baseUrl}}"
-          path:
-            - orders
-            - "{{orderId}}"
-            - confirm
-
-
+          })
+        },
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/shipping",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders", "{{orderId}}", "shipping"]
+        }
+      }
+    },
+    {
+      "name": "4. Выбор доставки (Самовывоз)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "deliveryType": "pickup",
+            "pickupPointId": "point_1"
+          })
+        },
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/shipping",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders", "{{orderId}}", "shipping"]
+        }
+      }
+    },
+    {
+      "name": "5. Инициировать оплату (Карта)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Получили ссылку на оплату', () => {",
+              "  const jsonData = pm.response.json();",
+              "  pm.expect(jsonData.paymentUrl).to.exist;",
+              "  console.log('Оплатить по ссылке:', jsonData.paymentUrl);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "paymentMethod": "card",
+            "paymentGateway": "mock"
+          })
+        },
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/payment",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders", "{{orderId}}", "payment"]
+        }
+      }
+    },
+    {
+      "name": "6. Подтвердить заказ",
+      "request": {
+        "method": "PUT",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/confirm",
+          "host": ["{{baseUrl}}"],
+          "path": ["orders", "{{orderId}}", "confirm"]
+        }
+      }
+    }
+  ]
+}
 
