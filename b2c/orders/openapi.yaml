@@ -181,6 +181,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaymentMethodResponseDTO'
+  /orders/create:
+    post:
+      tags: [Orders]
+      summary: Создать заказ (подтверждение)
+      description: |
+        Финализация оформления заказа: сервис генерирует `id` (UUID) и атомарно создает запись заказа.
+
+        Побочный эффект: сервис публикует доменное событие **`order.created`** (см. `NotificationEventType`).
+      operationId: createOrder
+      security: [{bearerHttpAuthentication: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequestDTO'
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrderResponseDTO'
+        '400':
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Не авторизован
+        '409':
+          description: Конфликт создания заказа (например, заказ уже создан для данного checkout)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /orders/history:
     get:
       tags: [Orders]
@@ -916,6 +954,57 @@ components:
         token: {type: string}
         is_default: {type: boolean, default: false}
       required: [type, token]
+
+    CreateOrderRequestDTO:
+      type: object
+      description: |
+        Минимальный контракт для создания заказа на этапе подтверждения.
+        Идентификатор (`id`) генерируется на стороне сервиса.
+      required: [total]
+      properties:
+        total:
+          type: number
+          minimum: 0
+          example: 132980.00
+        currency:
+          type: string
+          description: Валюта (опционально, по умолчанию RUB)
+          default: RUB
+          example: RUB
+        source:
+          type: string
+          description: Источник создания (опционально)
+          example: web
+        checkout_id:
+          type: string
+          format: uuid
+          description: Идентификатор процесса checkout (из блоков 4–5), если используется
+          nullable: true
+
+    CreateOrderResponseDTO:
+      type: object
+      required: [id, total, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Идентификатор заказа (UUID)
+          example: "66666666-7777-8888-9999-aaaaaaaaaaaa"
+        total:
+          type: number
+          minimum: 0
+          example: 132980.00
+        status:
+          type: string
+          description: |
+            Статус заказа сразу после создания.
+            Для Блока 6 — `new` (в БД хранится как `status='new'`).
+          enum: [new]
+          example: new
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-18T12:34:56Z"
 
     Item:
       type: object
