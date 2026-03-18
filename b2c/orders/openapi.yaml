@@ -1,10 +1,395 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
-  title: "NeoMarket B2C: Заказы"
-  version: "0.1"
-  description: |
-    Проектируется синдикатом QA Corps.
-    Домены: оформление заказа, статусы (state machine), отмена, история заказов.
+  title: Order API - Step 1
+  version: 1.0.0
+  description: API для первого шага оформления заказа - данные покупателя
 
-paths: {}
-# Здесь команды QA Corps описывают свои эндпоинты
+servers:
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Orders
+    description: Управление заказами
+
+paths:
+  /api/orders/init:
+    post:
+      tags:
+        - Orders
+      summary: Создать черновик заказа
+      description: Инициализация нового заказа, создание черновика
+      operationId: initOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitOrderRequest'
+      responses:
+        '200':
+          description: Черновик заказа успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitOrderResponse'
+        '400':
+          description: Ошибка валидации запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/{orderId}/step1:
+    put:
+      tags:
+        - Orders
+      summary: Сохранить и проверить данные покупателя
+      description: Сохраняет данные формы и проверяет телефон через API, адрес через Google Address Validation
+      operationId: saveStep1
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: ID заказа
+          schema:
+            type: string
+            example: order_1234
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Step1Request'
+      responses:
+        '200':
+          description: Данные сохранены, результат валидации
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Step1SuccessResponse'
+                  - $ref: '#/components/schemas/Step1ErrorResponse'
+        '400':
+          description: Ошибка валидации запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Заказ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Orders
+      summary: Получить сохраненные данные шага 1
+      description: Возвращает ранее сохраненные данные покупателя
+      operationId: getStep1
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: ID заказа
+          schema:
+            type: string
+            example: order_1234
+      responses:
+        '200':
+          description: Данные шага 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Step1Response'
+        '404':
+          description: Заказ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Request schemas
+    InitOrderRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          description: ID пользователя (или берется из токена)
+          example: "123"
+
+    Step1Request:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - phone
+        - email
+        - address
+      properties:
+        firstName:
+          type: string
+          description: Имя
+          example: "Иван"
+        lastName:
+          type: string
+          description: Фамилия
+          example: "Петров"
+        phone:
+          type: string
+          description: Номер телефона в международном формате
+          pattern: '^\+?[1-9]\d{1,14}$'
+          example: "+79991234567"
+        email:
+          type: string
+          format: email
+          description: Email адрес
+          example: "ivan@mail.ru"
+        address:
+          $ref: '#/components/schemas/Address'
+        comment:
+          type: string
+          description: Комментарий к заказу
+          example: "Позвонить за час"
+
+    Address:
+      type: object
+      required:
+        - country
+        - city
+        - street
+        - house
+      properties:
+        country:
+          type: string
+          description: Страна
+          example: "РФ"
+        city:
+          type: string
+          description: Город
+          example: "Москва"
+        street:
+          type: string
+          description: Улица
+          example: "Ленина"
+        house:
+          type: string
+          description: Номер дома
+          example: "10"
+        apartment:
+          type: string
+          description: Квартира
+          example: "15"
+        postalCode:
+          type: string
+          description: Почтовый индекс
+          example: "101000"
+
+    # Response schemas
+    InitOrderResponse:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: ID созданного заказа
+          example: "order_1234"
+        status:
+          type: string
+          description: Статус заказа
+          enum: [draft]
+          example: "draft"
+
+    Step1SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Флаг успешной валидации
+          enum: [true]
+          example: true
+        next_step_allowed:
+          type: boolean
+          description: Разрешен ли переход к следующему шагу
+          example: true
+        validated:
+          type: object
+          properties:
+            phone:
+              $ref: '#/components/schemas/PhoneValidation'
+            address:
+              $ref: '#/components/schemas/AddressValidation'
+
+    Step1ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Флаг успешной валидации
+          enum: [false]
+          example: false
+        next_step_allowed:
+          type: boolean
+          description: Разрешен ли переход к следующему шагу
+          example: false
+        errors:
+          type: object
+          properties:
+            phone:
+              type: string
+              description: Ошибка валидации телефона
+              example: "Номер не существует"
+            address.city:
+              type: string
+              description: Ошибка валидации города
+              example: "Город не найден"
+            address.house:
+              type: string
+              description: Ошибка валидации дома
+              example: "Дом 10 не существует"
+          additionalProperties:
+            type: string
+
+    Step1Response:
+      type: object
+      properties:
+        firstName:
+          type: string
+          description: Имя
+          example: "Иван"
+        lastName:
+          type: string
+          description: Фамилия
+          example: "Петров"
+        phone:
+          type: string
+          description: Номер телефона
+          example: "+79991234567"
+        email:
+          type: string
+          format: email
+          description: Email адрес
+          example: "ivan@mail.ru"
+        address:
+          $ref: '#/components/schemas/Address'
+        comment:
+          type: string
+          description: Комментарий к заказу
+          example: "Позвонить за час"
+        step1_completed:
+          type: boolean
+          description: Флаг завершения первого шага
+          example: true
+
+    PhoneValidation:
+      type: object
+      properties:
+        operator:
+          type: string
+          description: Оператор связи
+          example: "МТС"
+
+    AddressValidation:
+      type: object
+      properties:
+        normalized:
+          type: string
+          description: Нормализованный адрес
+          example: "г Москва, ул Ленина, д 10"
+        geo:
+          type: object
+          properties:
+            lat:
+              type: number
+              format: float
+              description: Широта
+              example: 55.7558
+            lng:
+              type: number
+              format: float
+              description: Долгота
+              example: 37.6176
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Сообщение об ошибке
+          example: "Order not found"
+        code:
+          type: string
+          description: Код ошибки
+          example: "NOT_FOUND"
+
+  # External API schemas (для документации)
+  PhoneApiRequest:
+    type: object
+    properties:
+      phone:
+        type: string
+        example: "+79991234567"
+
+  PhoneApiResponse:
+    type: object
+    properties:
+      valid:
+        type: boolean
+        example: true
+      operator:
+        type: string
+        example: "МТС"
+      region:
+        type: string
+        example: "Москва"
+
+  GoogleAddressValidationRequest:
+    type: object
+    properties:
+      address:
+        type: object
+        properties:
+          regionCode:
+            type: string
+            example: "RU"
+          locality:
+            type: string
+            example: "Москва"
+          addressLines:
+            type: array
+            items:
+              type: string
+            example: ["Ленина 10"]
+
+  GoogleAddressValidationResponse:
+    type: object
+    properties:
+      verdict:
+        type: object
+        properties:
+          validationGranularity:
+            type: string
+            enum: [PREMISE]
+            example: "PREMISE"
+      address:
+        type: object
+        properties:
+          formattedAddress:
+            type: string
+            example: "ул Ленина, д 10, Москва"
+      geo:
+        type: object
+        properties:
+          lat:
+            type: number
+            format: float
+            example: 55.7558
+          lng:
+            type: number
+            format: float
+            example: 37.6176
