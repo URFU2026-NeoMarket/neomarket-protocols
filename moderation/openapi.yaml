@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: NeoMarket Moderation
   version: 1.0.0
-  description: 
+  description: |
   API для модерации товаров с поддержкой снимков и событий
   Модуль модерации товаров.
 
@@ -16,8 +16,6 @@ info:
 servers:
   - url: https://moderation-api.example.com/v1
     description: Moderation service
-  - url: https://b2b-api.example.com/v1
-    description: B2B service (external)
 
 tags:
   - name: Moderation
@@ -39,11 +37,25 @@ components:
       name: X-API-Key
 
   schemas:
-    # --- События ---
-    ProductEvent:
+    # --- Базовые типы ---
+    ProductId:
+      type: integer
+      minimum: 1
+      example: 12345
+
+    Timestamp:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"
+
+    EventId:
+      type: string
+      format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+
+    # --- События с дискриминатором ---
+    BaseProductEvent:
       type: object
-      discriminator:
-        propertyName: event_type
       required:
         - event_id
         - event_type
@@ -51,9 +63,7 @@ components:
         - timestamp
       properties:
         event_id:
-          type: string
-          format: uuid
-          description: Уникальный идентификатор события
+          $ref: '#/components/schemas/EventId'
         event_type:
           type: string
           enum:
@@ -61,18 +71,17 @@ components:
             - product.updated
             - product.deleted
         product_id:
-          type: integer
-          description: ID товара в B2B системе
+          $ref: '#/components/schemas/ProductId'
         timestamp:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/Timestamp'
         producer:
           type: string
-          description: Источник события (b2b-service)
+          default: "b2b-service"
+          example: "b2b-service"
 
     ProductCreatedEvent:
       allOf:
-        - $ref: '#/components/schemas/ProductEvent'
+        - $ref: '#/components/schemas/BaseProductEvent'
         - type: object
           properties:
             data:
@@ -80,12 +89,14 @@ components:
               properties:
                 created_by:
                   type: integer
+                  example: 42
                 initial_status:
                   type: string
+                  example: "draft"
 
     ProductUpdatedEvent:
       allOf:
-        - $ref: '#/components/schemas/ProductEvent'
+        - $ref: '#/components/schemas/BaseProductEvent'
         - type: object
           properties:
             data:
@@ -95,18 +106,31 @@ components:
                   type: array
                   items:
                     type: string
+                  example: ["name", "price", "description"]
                 updated_by:
                   type: integer
+                  example: 42
+
+    ProductEvent:
+      oneOf:
+        - $ref: '#/components/schemas/ProductCreatedEvent'
+        - $ref: '#/components/schemas/ProductUpdatedEvent'
+      discriminator:
+        propertyName: event_type
+        mapping:
+          product.created: '#/components/schemas/ProductCreatedEvent'
+          product.updated: '#/components/schemas/ProductUpdatedEvent'
 
     # --- Модерация ---
     ModerationStatus:
       type: string
       enum:
-        - pending      # Ожидает модерации
-        - approved     # Одобрено
-        - rejected     # Отклонено
-        - changes_required  # Требуются изменения
-        - draft        # Черновик
+        - pending
+        - approved
+        - rejected
+        - changes_required
+        - draft
+      example: "pending"
 
     ProductSnapshot:
       type: object
@@ -114,23 +138,28 @@ components:
         id:
           type: integer
           readOnly: true
+          example: 1001
         product_id:
-          type: integer
-          description: ID товара в B2B
+          $ref: '#/components/schemas/ProductId'
         version:
           type: integer
-          description: Версия снимка
+          example: 3
         data:
           type: object
           description: Полные данные товара из B2B
+          additionalProperties: true
         hash:
           type: string
-          description: Хеш данных для обнаружения изменений
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         created_at:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/Timestamp'
         source_event:
-          $ref: '#/components/schemas/ProductEvent'
+          type: object
+          properties:
+            event_id:
+              $ref: '#/components/schemas/EventId'
+            event_type:
+              type: string
 
     ModerationTask:
       type: object
@@ -141,13 +170,16 @@ components:
         id:
           type: integer
           readOnly: true
+          example: 5001
         product_id:
-          type: integer
+          $ref: '#/components/schemas/ProductId'
         snapshot_id:
           type: integer
+          example: 1001
         previous_snapshot_id:
           type: integer
           nullable: true
+          example: 1000
         status:
           $ref: '#/components/schemas/ModerationStatus'
         priority:
@@ -155,9 +187,11 @@ components:
           minimum: 1
           maximum: 10
           default: 5
+          example: 7
         assigned_to:
           type: integer
           nullable: true
+          example: 42
         assigned_at:
           type: string
           format: date-time
@@ -167,11 +201,20 @@ components:
           format: date-time
           nullable: true
         created_at:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/Timestamp'
         updated_at:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/Timestamp'
+
+    RejectReason:
+      type: string
+      enum:
+        - inappropriate_content
+        - poor_quality
+        - incorrect_category
+        - trademark_violation
+        - prohibited_item
+        - other
+      example: "inappropriate_content"
 
     ModerationDecision:
       type: object
@@ -181,26 +224,21 @@ components:
         decision:
           type: string
           enum: [approved, rejected, changes_required]
+          example: "approved"
         comment:
           type: string
           maxLength: 1000
-          description: Комментарий модератора
+          example: "Все хорошо, товар соответствует требованиям"
         reject_reason:
-          type: string
-          enum:
-            - inappropriate_content
-            - poor_quality
-            - incorrect_category
-            - trademark_violation
-            - prohibited_item
-            - other
+          $ref: '#/components/schemas/RejectReason'
         required_changes:
           type: array
           items:
             type: string
-          description: Список необходимых изменений
+          example: ["Исправить описание", "Добавить фото"]
         moderator_id:
           type: integer
+          example: 42
 
     ModerationResultEvent:
       type: object
@@ -212,53 +250,149 @@ components:
         - timestamp
       properties:
         event_id:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/EventId'
         event_type:
           type: string
           enum:
             - moderation.approved
             - moderation.rejected
             - moderation.changes_required
+          example: "moderation.approved"
         product_id:
-          type: integer
+          $ref: '#/components/schemas/ProductId'
         decision:
           $ref: '#/components/schemas/ModerationDecision'
         snapshot_id:
           type: integer
+          example: 1001
         timestamp:
-          type: string
-          format: date-time
+          $ref: '#/components/schemas/Timestamp'
 
-    # --- API ответы ---
+    # --- Сравнение снимков ---
+    ChangeType:
+      type: string
+      enum: [added, removed, modified]
+      example: "modified"
+
+    FieldDiff:
+      type: object
+      properties:
+        field:
+          type: string
+          example: "price"
+        old_value:
+          type: string
+          nullable: true
+          example: "1000"
+        new_value:
+          type: string
+          nullable: true
+          example: "1200"
+        change_type:
+          $ref: '#/components/schemas/ChangeType'
+
+    SnapshotDiff:
+      type: object
+      properties:
+        snapshot_a_id:
+          type: integer
+          example: 1000
+        snapshot_b_id:
+          type: integer
+          example: 1001
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDiff'
+
+    # --- Пагинация ---
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        pages:
+          type: integer
+          example: 8
+
     PaginatedResponse:
       type: object
       properties:
         data:
           type: array
+          items:
+            type: object
         pagination:
-          type: object
-          properties:
-            page:
-              type: integer
-            limit:
-              type: integer
-            total:
-              type: integer
-            pages:
-              type: integer
+          $ref: '#/components/schemas/Pagination'
 
+    # --- Ошибки ---
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
+          example: "Validation Error"
         message:
           type: string
+          example: "Invalid input data"
         code:
           type: string
+          example: "VALIDATION_ERROR"
         details:
           type: object
+          nullable: true
+          additionalProperties: true
+
+    # --- Статистика ---
+    ModerationStats:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [today, week, month, all]
+          example: "week"
+        total_tasks:
+          type: integer
+          example: 245
+        pending_tasks:
+          type: integer
+          example: 23
+        completed_tasks:
+          type: integer
+          example: 222
+        avg_decision_time:
+          type: number
+          format: float
+          example: 3600.5
+        decisions_by_type:
+          type: object
+          properties:
+            approved:
+              type: integer
+              example: 180
+            rejected:
+              type: integer
+              example: 30
+            changes_required:
+              type: integer
+              example: 12
+        top_reject_reasons:
+          type: array
+          items:
+            type: object
+            properties:
+              reason:
+                $ref: '#/components/schemas/RejectReason'
+              count:
+                type: integer
+                example: 15
 
   parameters:
     ProductIdParam:
@@ -266,7 +400,7 @@ components:
       in: path
       required: true
       schema:
-        type: integer
+        $ref: '#/components/schemas/ProductId'
       description: ID товара
 
     TaskIdParam:
@@ -277,6 +411,14 @@ components:
         type: integer
       description: ID задачи модерации
 
+    SnapshotIdParam:
+      name: snapshot_id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: ID снимка
+
   responses:
     NotFoundError:
       description: Ресурс не найден
@@ -284,10 +426,10 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-
-security:
-  - bearerAuth: []
-  - apiKey: []
+          example:
+            error: "Not Found"
+            message: "Task with id 9999 not found"
+            code: "NOT_FOUND"
 
 paths:
   # --- Webhook для приема событий от B2B ---
@@ -307,6 +449,7 @@ paths:
                 - $ref: '#/components/schemas/ProductUpdatedEvent'
             examples:
               created:
+                summary: Событие создания товара
                 value:
                   event_id: "123e4567-e89b-12d3-a456-426614174000"
                   event_type: "product.created"
@@ -317,6 +460,7 @@ paths:
                     created_by: 42
                     initial_status: "draft"
               updated:
+                summary: Событие обновления товара
                 value:
                   event_id: "123e4567-e89b-12d3-a456-426614174001"
                   event_type: "product.updated"
@@ -333,7 +477,20 @@ paths:
             Location:
               schema:
                 type: string
-              description: URL для проверки статуса обработки
+              example: "/api/v1/moderation/events/123"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "accepted"
+                  event_id:
+                    $ref: '#/components/schemas/EventId'
+                  message:
+                    type: string
+                    example: "Event accepted for processing"
         '400':
           description: Невалидное событие
           content:
@@ -357,11 +514,13 @@ paths:
             type: array
             items:
               $ref: '#/components/schemas/ModerationStatus'
+          style: form
+          explode: false
           description: Фильтр по статусам
         - name: product_id
           in: query
           schema:
-            type: integer
+            $ref: '#/components/schemas/ProductId'
           description: Фильтр по товару
         - name: assigned_to
           in: query
@@ -389,6 +548,7 @@ paths:
           schema:
             type: integer
             default: 1
+            minimum: 1
         - name: limit
           in: query
           schema:
@@ -437,12 +597,15 @@ paths:
                 - product_id
               properties:
                 product_id:
-                  type: integer
+                  $ref: '#/components/schemas/ProductId'
                 priority:
                   type: integer
+                  minimum: 1
+                  maximum: 10
                   default: 5
                 notes:
                   type: string
+                  maxLength: 500
       responses:
         '201':
           description: Задача создана
@@ -450,6 +613,7 @@ paths:
             Location:
               schema:
                 type: string
+              example: "/api/v1/moderation/tasks/5001"
           content:
             application/json:
               schema:
@@ -496,6 +660,10 @@ paths:
       responses:
         '200':
           description: Задача обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationTask'
 
   /moderation/tasks/{task_id}/decide:
     post:
@@ -521,16 +689,26 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    example: true
                   task:
                     $ref: '#/components/schemas/ModerationTask'
                   notification_sent:
                     type: boolean
+                    example: true
         '400':
           description: Некорректное решение
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '409':
           description: Задача уже решена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /moderation/tasks/queue:
     get:
@@ -550,6 +728,7 @@ paths:
             type: integer
             minimum: 1
             maximum: 10
+            default: 5
       responses:
         '200':
           description: Следующая задача
@@ -584,7 +763,7 @@ paths:
                 type: object
                 properties:
                   product_id:
-                    type: integer
+                    $ref: '#/components/schemas/ProductId'
                   current_snapshot:
                     $ref: '#/components/schemas/ProductSnapshot'
                   snapshots:
@@ -599,11 +778,7 @@ paths:
       tags:
         - Snapshots
       parameters:
-        - name: snapshot_id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/SnapshotIdParam'
       responses:
         '200':
           description: Данные снимка
@@ -619,11 +794,7 @@ paths:
       tags:
         - Snapshots
       parameters:
-        - name: snapshot_id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/SnapshotIdParam'
         - name: compare_with
           in: query
           required: true
@@ -636,28 +807,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  snapshot_a_id:
-                    type: integer
-                  snapshot_b_id:
-                    type: integer
-                  differences:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        field:
-                          type: string
-                        old_value:
-                          type: any
-                        new_value:
-                          type: any
-                        change_type:
-                          type: string
-                          enum: [added, removed, modified]
+                $ref: '#/components/schemas/SnapshotDiff'
 
-  # --- API для уведомления B2B ---
+  # --- Отправка результата в B2B ---
   /webhooks/b2b/moderation-result:
     post:
       summary: Отправка результата модерации в B2B
@@ -673,8 +825,20 @@ paths:
       responses:
         '202':
           description: Результат принят
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "accepted"
         '400':
           description: Ошибка в данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # --- Статистика ---
   /moderation/stats:
@@ -700,34 +864,4 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  period:
-                    type: string
-                  total_tasks:
-                    type: integer
-                  pending_tasks:
-                    type: integer
-                  completed_tasks:
-                    type: integer
-                  avg_decision_time:
-                    type: number
-                    description: Среднее время принятия решения (секунды)
-                  decisions_by_type:
-                    type: object
-                    properties:
-                      approved:
-                        type: integer
-                      rejected:
-                        type: integer
-                      changes_required:
-                        type: integer
-                  top_reject_reasons:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        reason:
-                          type: string
-                        count:
-                          type: integer
+                $ref: '#/components/schemas/ModerationStats'
