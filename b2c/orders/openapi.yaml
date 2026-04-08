@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Проектируется синдикатом QA Corps.
-    Домены: оформление заказа, статусы (state machine), отмена, история заказов.
+    Домены: оформление заказа, статусы (state machine), отмена, история заказов, каталог и корзина.
 tags:
   - name: Auth
   - name: Profile
@@ -14,6 +14,8 @@ tags:
   - name: Notifications
   - name: Orders
   - name: Analytics
+  - name: Catalog
+  - name: Cart
 security:
   - bearerHttpAuthentication: []
 paths:
@@ -816,6 +818,145 @@ paths:
           description: Нет прав (например, заказ еще не доставлен)
         '404':
           description: Заказ не найден
+
+  /catalog/search:
+    get:
+      tags: [Catalog]
+      summary: Поиск и фильтрация товаров
+      description: |
+        Интеграция с внешним каталогом. Поддерживает полнотекстовый поиск, фильтрацию по цене, категориям и сортировку.
+        Для быстрой работы на стороне БД должны быть настроены B-Tree индексы на `category_id`, `price` и GIN/GiST индексы для полнотекстового поиска.
+      operationId: searchProducts
+      parameters:
+        - name: q
+          in: query
+          description: Строка для полнотекстового поиска
+          schema:
+            type: string
+        - name: category_id
+          in: query
+          description: Фильтр по категории
+          schema:
+            type: string
+            format: uuid
+        - name: min_price
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: max_price
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc, rating_desc, newest]
+            default: newest
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        '200':
+          description: Успешный поиск товаров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+  /products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Получить карточку товара
+      operationId: getProductById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детальная информация о товаре
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Товар не найден
+
+  /products/{id}/recommendations:
+    get:
+      tags: [Catalog]
+      summary: Получить рекомендации для товара
+      description: Возвращает список сопутствующих или похожих товаров.
+      operationId: getProductRecommendations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список рекомендованных товаров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Получить корзину текущего пользователя
+      operationId: getCart
+      security:
+        - bearerHttpAuthentication: []
+      responses:
+        '200':
+          description: Содержимое корзины
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          description: Не авторизован
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Добавить товар в корзину
+      description: |
+        Добавляет товар в корзину пользователя. 
+        Генерирует доменное событие `cart.item_added` для аналитики или других микросервисов.
+      operationId: addToCart
+      security:
+        - bearerHttpAuthentication: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToCartRequest'
+      responses:
+        '200':
+          description: Товар успешно добавлен, возвращается обновленная корзина
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Некорректные данные (например, отрицательное количество)
+        '404':
+          description: Товар не найден в каталоге
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1305,6 +1446,7 @@ components:
         - order.cancelled_by_admin
         - order.cancelled_automatically
         - payment.refunded
+        - cart.item_added
       example: order.created
 
     NotificationChannel:
@@ -1387,6 +1529,7 @@ components:
             - $ref: '#/components/schemas/OrderCancelledByAdminEventData'
             - $ref: '#/components/schemas/OrderCancelledAutomaticallyEventData'
             - $ref: '#/components/schemas/PaymentRefundedEventData'
+            - $ref: '#/components/schemas/CartItemAddedEventData'
 
     OrderCreatedEventData:
       type: object
@@ -1587,6 +1730,15 @@ components:
         reason_code:
           type: string
           example: "ORDER_CANCELLED"
+
+    CartItemAddedEventData:
+      type: object
+      required: [product_id, quantity, user_id]
+      properties:
+        product_id: {type: string, format: uuid}
+        quantity: {type: integer}
+        user_id: {type: string, format: uuid}
+        price_at_addition: {type: number, format: float}
 
     ReservedItem:
       type: object
@@ -1882,6 +2034,62 @@ components:
             expires_at:
               type: string
               format: date-time
+
+    Product:
+      type: object
+      required: [id, name, price, category_id, is_active]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        description: {type: string}
+        price: {type: number, format: float}
+        old_price: {type: number, format: float, description: "Для отображения скидок"}
+        category_id: {type: string, format: uuid}
+        stock_quantity: {type: integer, minimum: 0}
+        image_urls:
+          type: array
+          items: {type: string, format: uri}
+        rating: {type: number, format: float, minimum: 0, maximum: 5}
+        is_active: {type: boolean}
+
+    ProductListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total: {type: integer, minimum: 0}
+        limit: {type: integer}
+        offset: {type: integer}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Product'}
+
+    CartItem:
+      type: object
+      required: [product_id, name, quantity, price]
+      properties:
+        product_id: {type: string, format: uuid}
+        name: {type: string}
+        quantity: {type: integer, minimum: 1}
+        price: {type: number, format: float}
+        image_url: {type: string, format: uri}
+
+    Cart:
+      type: object
+      required: [user_id, items, total_price]
+      properties:
+        user_id: {type: string, format: uuid}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CartItem'}
+        total_price: {type: number, format: float}
+
+    AddToCartRequest:
+      type: object
+      required: [product_id, quantity]
+      properties:
+        product_id: {type: string, format: uuid}
+        quantity: {type: integer, minimum: 1, default: 1}
+
 x-cron-jobs:
   - name: reservation-expirer
     schedule: "*/1 * * * *"
