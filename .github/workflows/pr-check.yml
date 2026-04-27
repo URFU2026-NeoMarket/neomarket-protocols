@@ -1,7 +1,7 @@
 name: PR Check (DEC-071)
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
