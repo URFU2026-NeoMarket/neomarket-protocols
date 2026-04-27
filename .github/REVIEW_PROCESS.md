@@ -92,7 +92,30 @@ Peer review обязателен для каждого PR, который вно
 4. Награды нет, но и блокировки нет.
 5. Метку `cosmetic` ставит автор PR, координатор подтверждает.
 
+## Автоматические проверки CI
+
+Каждый PR запускает 3 GitHub Actions:
+
+1. **`validate`** (`.github/workflows/validate-openapi.yml`) — Spectral lint OpenAPI спецификаций.
+2. **`pr-check`** (`.github/workflows/pr-check.yml`) — DEC-071 проверка заполненности шаблона:
+   - §1 «Что меняется?» — наличие + ≥30 значимых символов;
+   - метка `cosmetic` пропускает §2-§5;
+   - §2 «Доказательство» содержит URL;
+   - §3 «Анти-дубль» — хотя бы один отмеченный `[x]`;
+   - §4 «Flow-сценарий» — User / Technical / Test flow заполнены (≥10 символов каждый);
+   - §5 «Влияние» обязательна, если PR трогает `shared/` или ≥2 доменов; плейсхолдеры 🟢/🟡/🔴 запрещены.
+3. **`scope-label`** (`.github/workflows/auto-label-scope.yml`) — автоматически ставит label `scope:cosmetic/minor/enhancement/new-endpoint/architectural` на основе размера diff и затронутых доменов. Координатор/Founder может скорректировать вручную.
+
+Все 3 проверки **обязательны** для merge — `branch protection master` блокирует merge до зелёного CI и аппрува ревьюера.
+
+### Метка `cosmetic`
+
+Если автор PR ставит `cosmetic` (опечатки, форматирование, переименования <3 строк) — `pr-check` требует только §1; peer review не нужен; merge координатором за 24ч. Координатор подтверждает или снимает метку (тогда требуется полное заполнение).
+
 ## Связанные документы
 
 - [`.github/pull_request_template.md`](./pull_request_template.md) — шаблон PR
-- DEC-071 v2 (в репозитории `plan/`) — обоснование процесса и оценочной модели награды
+- [`.github/workflows/pr-check.yml`](./workflows/pr-check.yml) — DEC-071 проверки шаблона
+- [`.github/workflows/auto-label-scope.yml`](./workflows/auto-label-scope.yml) — автоопределение scope
+- [`.github/workflows/validate-openapi.yml`](./workflows/validate-openapi.yml) — Spectral lint
+- DEC-071 v3 (в репозитории `plan/`) — обоснование процесса, scope-таблица, оценочная модель награды

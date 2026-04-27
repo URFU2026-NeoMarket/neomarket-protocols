@@ -1,0 +1,149 @@
+name: PR Check (DEC-071)
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  pr-check:
+    name: pr-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr view "$PR" --repo "$REPO" --json body --jq '.body' > pr_body.md
+
+      - name: Get PR labels
+        id: labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          LABELS=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")')
+          echo "labels=$LABELS" >> "$GITHUB_OUTPUT"
+
+      - name: Get changed files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr diff "$PR" --repo "$REPO" --name-only > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Run DEC-071 checks
+        shell: python
+        env:
+          PR_LABELS: ${{ steps.labels.outputs.labels }}
+        run: |
+          import re, sys, os
+
+          body = open('pr_body.md', encoding='utf-8').read()
+          labels = [l.strip() for l in os.environ.get('PR_LABELS', '').split(',') if l.strip()]
+          files = [l.strip() for l in open('changed_files.txt', encoding='utf-8').read().splitlines() if l.strip()]
+
+          errors = []
+
+          def section(num, body):
+              pattern = rf'^##\s*{num}\.\s.*?(?=^##\s*\d+\.|^---\s*$|\Z)'
+              m = re.search(pattern, body, re.MULTILINE | re.DOTALL)
+              return m.group(0) if m else ''
+
+          def strip_meta(text):
+              text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+              text = re.sub(r'^##.*?\n', '', text)
+              return text
+
+          def significant(text):
+              return re.sub(r'\s', '', text)
+
+          is_cosmetic = 'cosmetic' in labels
+
+          # Check 1: §1 present, ≥30 significant chars
+          s1 = section(1, body)
+          if not s1.strip():
+              errors.append("Секция «1. Что меняется?» отсутствует")
+          else:
+              content = strip_meta(s1).strip()
+              if len(significant(content)) < 30:
+                  errors.append("Секция «1. Что меняется?» слишком короткая (нужно ≥30 значимых символов; не считая комментариев)")
+
+          if is_cosmetic:
+              if errors:
+                  print(f'::error::DEC-071: {len(errors)} ошибка(и) для cosmetic-PR')
+                  for e in errors:
+                      print(f'::error::{e}')
+                  sys.exit(1)
+              print('✓ PR помечен как cosmetic — заполнена только §1, остальные секции пропущены.')
+              sys.exit(0)
+
+          # Check 2: §2 has URL
+          s2 = section(2, body)
+          if not s2.strip():
+              errors.append("Секция «2. Доказательство корректности спецификации» отсутствует")
+          elif not re.search(r'https?://', s2):
+              errors.append("Секция «2. Доказательство» должна содержать URL (ссылка на CI run или PR реализации)")
+
+          # Check 3: §3 has at least one [x]
+          s3 = section(3, body)
+          if not s3.strip():
+              errors.append("Секция «3. Анти-дубль» отсутствует")
+          elif not re.search(r'-\s*\[\s*[xX]\s*\]', s3):
+              errors.append("Секция «3. Анти-дубль» — отметьте хотя бы один чекбокс [x]")
+
+          # Check 4: §4 User/Technical/Test flows filled
+          s4 = section(4, body)
+          if not s4.strip():
+              errors.append("Секция «4. Flow-сценарий» отсутствует")
+          else:
+              s4_clean = strip_meta(s4)
+              flow_pattern = r'\*\*{name}\*\*[^:]*:?\s*([\s\S]*?)(?=\*\*[A-ZА-Я][^*]*\*\*|\Z)'
+              for flow_name in ['User flow', 'Technical flow', 'Test flow']:
+                  m = re.search(flow_pattern.format(name=re.escape(flow_name)), s4_clean)
+                  if not m:
+                      errors.append(f"Секция «4. Flow-сценарий» — подсекция «{flow_name}» отсутствует")
+                      continue
+                  content = significant(m.group(1))
+                  if len(content) < 10:
+                      errors.append(f"Секция «4. Flow-сценарий» — «{flow_name}» не заполнена (нужно ≥10 значимых символов)")
+
+          # Check 5: cross-domain detection
+          domain_pattern = re.compile(r'^(b2b|b2c/[^/]+|moderation|shared)(/|$)')
+          domains = set()
+          for f in files:
+              m = domain_pattern.match(f)
+              if m:
+                  domains.add(m.group(1))
+          needs_s5 = ('shared' in domains) or (len([d for d in domains if d != 'shared']) >= 2)
+
+          if needs_s5:
+              s5 = section(5, body)
+              if not s5.strip():
+                  errors.append(f"PR трогает {sorted(domains)} — секция «5. Влияние на другие домены» обязательна")
+              else:
+                  if re.search(r'🟢\s*Нет\s*/\s*🟡\s*Косвенно\s*/\s*🔴\s*Критично', s5):
+                      errors.append("Секция «5. Влияние» оставлена с плейсхолдерами «🟢 Нет / 🟡 Косвенно / 🔴 Критично» — заполните уровни")
+                  ph_rows = len(re.findall(r'\|\s*🟢\s*/\s*🟡\s*/\s*🔴\s*\|', s5))
+                  if ph_rows > 0:
+                      errors.append(f"Секция «5. Влияние» содержит {ph_rows} незаполненных строк «🟢 / 🟡 / 🔴» — выберите уровень или удалите строку")
+                  filled_rows = re.findall(r'\|[^|]+\|\s*(🟢|🟡|🔴)\s*[^|/]*\|', s5)
+                  if not filled_rows:
+                      errors.append("Секция «5. Влияние» — ни одна строка таблицы не заполнена конкретным уровнем 🟢/🟡/🔴")
+
+          if errors:
+              print(f'::error::DEC-071 PR check failed: {len(errors)} issue(s)')
+              for e in errors:
+                  print(f'::error::{e}')
+              sys.exit(1)
+
+          print('✓ Все проверки DEC-071 пройдены.')

@@ -1,0 +1,72 @@
+name: Auto Label Scope (DEC-071)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: write
+
+jobs:
+  scope-label:
+    name: scope-label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect scope and apply label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
+          CHANGED: ${{ github.event.pull_request.changed_files }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh pr diff "$PR" --repo "$REPO" --name-only > files.txt || echo "" > files.txt
+          FILES_COUNT=$(grep -c . files.txt || true)
+          : "${FILES_COUNT:=0}"
+
+          DOMAINS_COUNT=$(grep -oE '^(b2b|b2c/[^/]+|moderation|shared)' files.txt | sort -u | grep -c . || true)
+          : "${DOMAINS_COUNT:=0}"
+          HAS_SHARED=$(grep -cE '^shared/' files.txt || true)
+          : "${HAS_SHARED:=0}"
+
+          NEW_PATH=$(gh pr diff "$PR" --repo "$REPO" 2>/dev/null | grep -cE '^\+\s*/[a-z][a-zA-Z0-9/_{}-]*:[[:space:]]*$' || true)
+          : "${NEW_PATH:=0}"
+
+          if [ "$ADDITIONS" -lt 20 ] && [ "$FILES_COUNT" -le 1 ]; then
+            SCOPE="cosmetic"
+          elif [ "$DOMAINS_COUNT" -ge 2 ] || [ "$HAS_SHARED" -gt 0 ]; then
+            SCOPE="architectural"
+          elif [ "$NEW_PATH" -gt 0 ]; then
+            SCOPE="new-endpoint"
+          elif [ "$ADDITIONS" -lt 50 ]; then
+            SCOPE="minor"
+          else
+            SCOPE="enhancement"
+          fi
+
+          echo "Scope detected: $SCOPE (additions=$ADDITIONS, files=$FILES_COUNT, domains=$DOMAINS_COUNT, shared=$HAS_SHARED, new_path=$NEW_PATH)"
+
+          declare -A COLORS=(
+            ["scope:cosmetic"]="cccccc"
+            ["scope:minor"]="fbca04"
+            ["scope:enhancement"]="0e8a16"
+            ["scope:new-endpoint"]="0075ca"
+            ["scope:architectural"]="5319e7"
+          )
+
+          for L in "${!COLORS[@]}"; do
+            gh label create "$L" --repo "$REPO" --color "${COLORS[$L]}" --description "DEC-071 PR scope" 2>/dev/null || true
+          done
+
+          for s in cosmetic minor enhancement new-endpoint architectural; do
+            if [ "$s" != "$SCOPE" ]; then
+              gh pr edit "$PR" --repo "$REPO" --remove-label "scope:$s" 2>/dev/null || true
+            fi
+          done
+
+          gh pr edit "$PR" --repo "$REPO" --add-label "scope:$SCOPE"
+          echo "✓ Применён label scope:$SCOPE"
