@@ -1,0 +1,297 @@
+openapi: 3.0.3
+info:
+  title: B2C Client API
+  version: 1.0.0
+  description: |
+    API для регистрации, аутентификации и управления клиентами в B2C.
+    Включает механизм получения и валидации пользовательской сессии.
+
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Вход в систему и получение сессии
+      operationId: login
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Неверный формат запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/register:
+    post:
+      summary: Регистрация нового клиента
+      operationId: register
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Клиент успешно создан
+          headers:
+            Location:
+              description: URL созданного ресурса
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Клиент с таким email или именем уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/me:
+    get:
+      summary: Получение текущей сессии пользователя
+      operationId: getCurrentSession
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Информация о текущей сессии и пользователе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionInfo'
+        '401':
+          description: Не авторизован или сессия недействительна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/logout:
+    post:
+      summary: Завершение сессии
+      operationId: logout
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Сессия успешно завершена
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/clients/me:
+    get:
+      summary: Получение профиля текущего пользователя
+      operationId: getMyProfile
+      tags:
+        - Clients
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные профиля
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '401':
+          description: Токен не предоставлен или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/clients/{id}:
+    get:
+      summary: Получение информации о клиенте
+      operationId: getClient
+      tags:
+        - Clients
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Информация о клиенте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к профилю другого пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Токен сессии, получаемый при входе. Передаётся в заголовке: Authorization: Bearer <token>"
+
+  schemas:
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: GabeNeverHL3
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: Пароль в открытом виде (хешируется на сервере)
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT токен доступа
+        refreshToken:
+          type: string
+          description: Токен для обновления сессии (рекомендуется хранить в HttpOnly cookie)
+        expiresIn:
+          type: integer
+          description: Время жизни accessToken в секундах
+        tokenType:
+          type: string
+          example: Bearer
+
+    SessionInfo:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        sessionId:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор сессии
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Поле email должно быть валидным адресом
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              issue:
+                type: string
