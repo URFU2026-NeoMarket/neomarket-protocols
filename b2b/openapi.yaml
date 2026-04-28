@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: NEO Market
   version: 1.0.0
-  description: |
+    description: |
     Авторизация продавца. Кабинет продавца. Создание товаров, SKU, управление ценами, накладные, изображения.
 
 paths:
@@ -306,11 +306,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/HTTPValidationError"
   /api/products:
+    post:
+      tags:
+        - Products
+      summary: Создать товар
+      operationId: create_product_api_products_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreate"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - OAuth2PasswordBearer: []
+  /api/products/my:
     get:
       tags:
         - Products
-      summary: Список товаров
-      operationId: get_products_api_products_get
+      summary: Get My Products
+      operationId: get_my_products_api_products_my_get
       security:
         - OAuth2PasswordBearer: []
       parameters:
@@ -341,37 +368,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HTTPValidationError"
-    post:
-      tags:
-        - Products
-      summary: Создать товар
-      operationId: create_product_api_products_post
-      security:
-        - OAuth2PasswordBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProductCreate"
-      responses:
-        "201":
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
   /api/products/{product_id}:
     get:
       tags:
         - Products
-      summary: Получить товар
+      summary: Получить товар по ID (для продавца)
       operationId: get_product_api_products__product_id__get
       security:
         - OAuth2PasswordBearer: []
@@ -959,6 +960,221 @@ paths:
                 $ref: "#/components/schemas/HTTPValidationError"
       security:
         - OAuth2PasswordBearer: []
+  /api/public/categories/tree:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Categories Tree
+      operationId: get_categories_tree_api_public_categories_tree_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/public/categories/{category_id}/breadcrumbs:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Breadcrumbs
+      operationId: get_breadcrumbs_api_public_categories__category_id__breadcrumbs_get
+      parameters:
+        - name: category_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Category Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/public/products:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Products Public
+      operationId: get_products_public_api_public_products_get
+      parameters:
+        - name: category_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                format: uuid
+              - type: "null"
+            title: Category Id
+        - name: search
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: "null"
+            title: Search
+        - name: min_price
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+                minimum: 0
+              - type: "null"
+            description: Минимальная цена
+            title: Min Price
+          description: Минимальная цена
+        - name: max_price
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+                minimum: 0
+              - type: "null"
+            description: Максимальная цена
+            title: Max Price
+          description: Максимальная цена
+        - name: seller_id
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                format: uuid
+              - type: "null"
+            title: Seller Id
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            description: Номер страницы
+            default: 1
+            title: Page
+          description: Номер страницы
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 100
+            minimum: 1
+            description: Товаров на странице
+            default: 20
+            title: Size
+          description: Товаров на странице
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/public/products/{product_id}:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Product Public
+      operationId: get_product_public_api_public_products__product_id__get
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Product Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/public/products/{product_id}/similar:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Similar Products Public
+      operationId: get_similar_products_public_api_public_products__product_id__similar_get
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Product Id
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 50
+            minimum: 1
+            description: Количество похожих товаров
+            default: 10
+            title: Limit
+          description: Количество похожих товаров
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+  /api/public/skus/{sku_id}:
+    get:
+      tags:
+        - Public Catalog
+      summary: Get Sku Public
+      operationId: get_sku_public_api_public_skus__sku_id__get
+      parameters:
+        - name: sku_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Sku Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
 components:
   schemas:
     Body_login_api_auth_login_post:
