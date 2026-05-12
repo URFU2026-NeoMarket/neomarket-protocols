@@ -695,6 +695,125 @@ paths:
                 $ref: "#/components/schemas/HTTPValidationError"
       security:
         - OAuth2PasswordBearer: []
+  /api/v1/products/{id}:
+    put:
+      tags:
+        - Products
+      summary: Редактировать товар (B2B-3)
+      description: |
+        Редактирование карточки товара (full-update). Если товар был
+        в статусе MODERATED или BLOCKED, после успешного редактирования
+        статус возвращается в ON_MODERATION и в Moderation отправляется
+        событие EDITED. HARD_BLOCKED редактировать нельзя — 403.
+        Ownership проверяется по seller_id из JWT claims.
+      operationId: edit_product_api_v1_products__id__put
+      security:
+        - OAuth2PasswordBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductEditRequest"
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not owner or hard-blocked product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/skus/{id}:
+    put:
+      tags:
+        - SKUs
+      summary: Редактировать SKU (B2B-3)
+      description: |
+        Редактирование SKU (full-update). reserved_quantity не принимается
+        и не меняется. Если родительский товар был в статусе MODERATED
+        или BLOCKED, после успешного редактирования статус товара
+        возвращается в ON_MODERATION и в Moderation отправляется событие
+        EDITED. На HARD_BLOCKED — 403. Ownership проверяется по seller_id
+        из JWT claims через parent product.
+      operationId: edit_sku_api_v1_skus__id__put
+      security:
+        - OAuth2PasswordBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SKUEditRequest"
+      responses:
+        "200":
+          description: SKU updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SKUResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not owner or hard-blocked product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: SKU not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/skus/images/{image_id}:
     patch:
       tags:
@@ -1461,6 +1580,21 @@ components:
         - name
         - value
       title: ProductCharacteristicResponse
+    ErrorResponse:
+      properties:
+        code:
+          type: string
+          title: Code
+          description: Машиночитаемый код ошибки (например, NOT_FOUND, NOT_OWNER, FORBIDDEN, INVALID_REQUEST, UNAUTHORIZED).
+        message:
+          type: string
+          title: Message
+          description: Человеко-читаемое описание ошибки.
+      type: object
+      required:
+        - code
+        - message
+      title: ErrorResponse
     ProductCreate:
       properties:
         category_id:
@@ -1492,6 +1626,44 @@ components:
         - category_id
         - title
       title: ProductCreate
+    ProductEditRequest:
+      description: |
+        Полное обновление карточки товара (PUT /api/v1/products/{id}).
+        Поля title, description, category_id обязательны и не могут быть null.
+        images и characteristics заменяются целиком (replace-стратегия).
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          title: Title
+        description:
+          type: string
+          maxLength: 5000
+          title: Description
+        category_id:
+          type: string
+          format: uuid
+          title: Category Id
+        images:
+          items:
+            $ref: "#/components/schemas/ProductImageCreate"
+          type: array
+          title: Images
+          default: []
+        characteristics:
+          items:
+            $ref: "#/components/schemas/ProductCharacteristicCreate"
+          type: array
+          title: Characteristics
+          default: []
+      type: object
+      required:
+        - title
+        - description
+        - category_id
+        - images
+        - characteristics
+      title: ProductEditRequest
     ProductImageCreate:
       properties:
         url:
@@ -1660,6 +1832,7 @@ components:
         - ON_MODERATION
         - MODERATED
         - BLOCKED
+        - HARD_BLOCKED
       title: ProductStatus
     ProductUpdate:
       properties:
@@ -1764,6 +1937,64 @@ components:
         - name
         - price
       title: SKUCreate
+    SKUEditRequest:
+      description: |
+        Полное обновление SKU (PUT /api/v1/skus/{id}).
+        product_id и reserved_quantity не принимаются: первое нельзя
+        изменить через edit, второе сохраняется автоматически.
+        images и characteristics заменяются целиком (replace-стратегия).
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          title: Name
+        price:
+          type: integer
+          minimum: 0
+          title: Price
+        stock_quantity:
+          type: integer
+          minimum: 0
+          title: Stock Quantity
+        article:
+          type: string
+          minLength: 1
+          maxLength: 255
+          title: Article
+        cost_price:
+          anyOf:
+            - type: integer
+              minimum: 0
+            - type: "null"
+          title: Cost Price
+        discount:
+          anyOf:
+            - type: integer
+              minimum: 0
+            - type: "null"
+          title: Discount
+        images:
+          items:
+            $ref: "#/components/schemas/SKUImageCreate"
+          type: array
+          title: Images
+          default: []
+        characteristics:
+          items:
+            $ref: "#/components/schemas/SKUCharacteristicCreate"
+          type: array
+          title: Characteristics
+          default: []
+      type: object
+      required:
+        - name
+        - price
+        - stock_quantity
+        - article
+        - images
+        - characteristics
+      title: SKUEditRequest
     SKUImageCreate:
       properties:
         url:
@@ -1841,11 +2072,27 @@ components:
         stock_quantity:
           type: integer
           title: Stock Quantity
+        reserved_quantity:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Reserved Quantity
+          description: Текущий объём резерва. Только для чтения; через API не задаётся.
         article:
           anyOf:
             - type: string
             - type: "null"
           title: Article
+        cost_price:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Cost Price
+        discount:
+          anyOf:
+            - type: integer
+            - type: "null"
+          title: Discount
         images:
           items:
             $ref: "#/components/schemas/SKUImageResponse"
