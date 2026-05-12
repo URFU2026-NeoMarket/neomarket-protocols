@@ -4,7 +4,6 @@ info:
   version: 1.0.0
   description: |
     Авторизация продавца. Кабинет продавца. Создание товаров, SKU, управление ценами, накладные, изображения.
-
 paths:
   /api/auth/register:
     post:
@@ -16,21 +15,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SellerCreate"
+              $ref: '#/components/schemas/SellerCreate'
         required: true
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SellerResponse"
-        "422":
+                $ref: '#/components/schemas/SellerResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/auth/login:
     post:
       tags:
@@ -41,21 +40,21 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: "#/components/schemas/Body_login_api_auth_login_post"
+              $ref: '#/components/schemas/Body_login_api_auth_login_post'
         required: true
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
-        "422":
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/auth/refresh:
     post:
       tags:
@@ -66,21 +65,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RefreshRequest"
+              $ref: '#/components/schemas/RefreshRequest'
         required: true
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
-        "422":
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/auth/logout:
     post:
       tags:
@@ -91,17 +90,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RefreshRequest"
+              $ref: '#/components/schemas/RefreshRequest'
         required: true
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/seller/profile:
     get:
       tags:
@@ -109,12 +108,12 @@ paths:
       summary: Мой профиль
       operationId: get_my_data_api_seller_profile_get
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SellerResponse"
+                $ref: '#/components/schemas/SellerResponse'
       security:
         - OAuth2PasswordBearer: []
   /api/seller/profile/update:
@@ -127,21 +126,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SellerUpdate"
+              $ref: '#/components/schemas/SellerUpdate'
         required: true
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SellerResponse"
-        "422":
+                $ref: '#/components/schemas/SellerResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
         - OAuth2PasswordBearer: []
   /api/seller/profile/delete:
@@ -151,7 +150,7 @@ paths:
       summary: Удалить аккаунт
       operationId: delete_me_api_seller_profile_delete_delete
       responses:
-        "204":
+        '204':
           description: Successful Response
       security:
         - OAuth2PasswordBearer: []
@@ -169,7 +168,7 @@ paths:
             anyOf:
               - type: string
                 format: uuid
-              - type: "null"
+              - type: 'null'
             title: Parent Id
         - name: only_root
           in: query
@@ -179,21 +178,21 @@ paths:
             default: false
             title: Only Root
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/CategoryResponse"
+                  $ref: '#/components/schemas/CategoryResponse'
                 title: Response Get Categories Api Categories Get
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
         - Categories
@@ -206,20 +205,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CategoryCreate"
+              $ref: '#/components/schemas/CategoryCreate'
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CategoryWithChildrenResponse"
-        "422":
+                $ref: '#/components/schemas/CategoryWithChildrenResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/categories/{category_id}:
     get:
       tags:
@@ -235,18 +234,18 @@ paths:
             format: uuid
             title: Category Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CategoryWithChildrenResponse"
-        "422":
+                $ref: '#/components/schemas/CategoryWithChildrenResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     patch:
       tags:
         - Categories
@@ -267,20 +266,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CategoryUpdate"
+              $ref: '#/components/schemas/CategoryUpdate'
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CategoryWithChildrenResponse"
-        "422":
+                $ref: '#/components/schemas/CategoryWithChildrenResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - Categories
@@ -297,14 +296,14 @@ paths:
             format: uuid
             title: Category Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/products:
     post:
       tags:
@@ -315,21 +314,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductCreate"
+              $ref: '#/components/schemas/ProductCreate'
         required: true
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "422":
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
         - OAuth2PasswordBearer: []
   /api/products/my:
@@ -356,18 +355,18 @@ paths:
             default: 0
             title: Offset
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductListResponse"
-        "422":
+                $ref: '#/components/schemas/ProductListResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/products/{product_id}:
     get:
       tags:
@@ -385,18 +384,18 @@ paths:
             format: uuid
             title: Product Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "422":
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     patch:
       tags:
         - Products
@@ -417,20 +416,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductUpdate"
+              $ref: '#/components/schemas/ProductUpdate'
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "422":
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - Products
@@ -447,14 +446,14 @@ paths:
             format: uuid
             title: Product Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/products/images/{image_id}:
     patch:
       tags:
@@ -476,20 +475,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductImageUpdateRequest"
+              $ref: '#/components/schemas/ProductImageUpdateRequest'
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductImageResponse"
-        "422":
+                $ref: '#/components/schemas/ProductImageResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - Products
@@ -506,14 +505,14 @@ paths:
             format: uuid
             title: Image Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/products/{product_id}/images:
     post:
       tags:
@@ -535,20 +534,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProductImageCreateRequest"
+              $ref: '#/components/schemas/ProductImageCreateRequest'
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductImageResponse"
-        "422":
+                $ref: '#/components/schemas/ProductImageResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/skus/by-product/{product_id}:
     get:
       tags:
@@ -566,21 +565,21 @@ paths:
             format: uuid
             title: Product Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/SKUResponse"
+                  $ref: '#/components/schemas/SKUResponse'
                 title: Response Get Skus By Product Api Skus By Product  Product Id  Get
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/skus/{sku_id}:
     get:
       tags:
@@ -598,18 +597,18 @@ paths:
             format: uuid
             title: Sku Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUResponse"
-        "422":
+                $ref: '#/components/schemas/SKUResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     patch:
       tags:
         - SKUs
@@ -630,20 +629,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SKUUpdate"
+              $ref: '#/components/schemas/SKUUpdate'
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUResponse"
-        "422":
+                $ref: '#/components/schemas/SKUResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - SKUs
@@ -660,14 +659,14 @@ paths:
             format: uuid
             title: Sku Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/skus/create:
     post:
       tags:
@@ -678,142 +677,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SKUCreate"
+              $ref: '#/components/schemas/SKUCreate'
         required: true
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUResponse"
-        "422":
+                $ref: '#/components/schemas/SKUResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
         - OAuth2PasswordBearer: []
-  /api/v1/products/{id}:
-    put:
-      tags:
-        - Products
-      summary: Редактировать товар (B2B-3)
-      description: |
-        Редактирование карточки товара (full-update). Если товар был
-        в статусе MODERATED или BLOCKED, после успешного редактирования
-        статус возвращается в ON_MODERATION и в Moderation отправляется
-        событие EDITED. HARD_BLOCKED редактировать нельзя — 403.
-        Ownership проверяется по seller_id из JWT claims.
-      operationId: edit_product_api_v1_products__id__put
-      security:
-        - OAuth2PasswordBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProductEditRequest"
-      responses:
-        "200":
-          description: Product updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Not owner or hard-blocked product
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Product not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /api/v1/skus/{id}:
-    put:
-      tags:
-        - SKUs
-      summary: Редактировать SKU (B2B-3)
-      description: |
-        Редактирование SKU (full-update). reserved_quantity не принимается
-        и не меняется. Если родительский товар был в статусе MODERATED
-        или BLOCKED, после успешного редактирования статус товара
-        возвращается в ON_MODERATION и в Moderation отправляется событие
-        EDITED. На HARD_BLOCKED — 403. Ownership проверяется по seller_id
-        из JWT claims через parent product.
-      operationId: edit_sku_api_v1_skus__id__put
-      security:
-        - OAuth2PasswordBearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SKUEditRequest"
-      responses:
-        "200":
-          description: SKU updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SKUResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Not owner or hard-blocked product
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: SKU not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
   /api/skus/images/{image_id}:
     patch:
       tags:
@@ -835,20 +715,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SKUImageUpdateRequest"
+              $ref: '#/components/schemas/SKUImageUpdateRequest'
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUImageResponse"
-        "422":
+                $ref: '#/components/schemas/SKUImageResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - SKUs
@@ -865,14 +745,14 @@ paths:
             format: uuid
             title: Image Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/skus/{sku_id}/images:
     post:
       tags:
@@ -894,20 +774,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SKUImageCreateRequest"
+              $ref: '#/components/schemas/SKUImageCreateRequest'
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUImageResponse"
-        "422":
+                $ref: '#/components/schemas/SKUImageResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/invoices:
     get:
       tags:
@@ -932,18 +812,18 @@ paths:
             default: 0
             title: Offset
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceListResponse"
-        "422":
+                $ref: '#/components/schemas/InvoiceListResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
         - Invoices
@@ -956,20 +836,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/InvoiceCreate"
+              $ref: '#/components/schemas/InvoiceCreate'
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceResponse"
-        "422":
+                $ref: '#/components/schemas/InvoiceResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/invoices/{invoice_id}:
     get:
       tags:
@@ -987,18 +867,18 @@ paths:
             format: uuid
             title: Invoice Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceResponse"
-        "422":
+                $ref: '#/components/schemas/InvoiceResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
         - Invoices
@@ -1015,14 +895,14 @@ paths:
             format: uuid
             title: Invoice Id
       responses:
-        "204":
+        '204':
           description: Successful Response
-        "422":
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/invoices/{invoice_id}/accept:
     post:
       tags:
@@ -1040,18 +920,18 @@ paths:
             format: uuid
             title: Invoice Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceResponse"
-        "422":
+                $ref: '#/components/schemas/InvoiceResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/upload/image:
     post:
       tags:
@@ -1062,21 +942,21 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/Body_upload_image_endpoint_api_upload_image_post"
+              $ref: '#/components/schemas/Body_upload_image_endpoint_api_upload_image_post'
         required: true
       responses:
-        "201":
+        '201':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadResponse"
-        "422":
+                $ref: '#/components/schemas/UploadResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
         - OAuth2PasswordBearer: []
   /api/public/categories/tree:
@@ -1086,14 +966,14 @@ paths:
       summary: Get Categories Tree
       operationId: get_categories_tree_api_public_categories_tree_get
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/CategoryWithChildrenResponse"
+                  $ref: '#/components/schemas/CategoryWithChildrenResponse'
   /api/public/categories/{category_id}/breadcrumbs:
     get:
       tags:
@@ -1109,20 +989,20 @@ paths:
             format: uuid
             title: Category Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/CategoryResponse"
-        "422":
+                  $ref: '#/components/schemas/CategoryResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/public/products:
     get:
       tags:
@@ -1137,7 +1017,7 @@ paths:
             anyOf:
               - type: string
                 format: uuid
-              - type: "null"
+              - type: 'null'
             title: Category Id
         - name: search
           in: query
@@ -1145,7 +1025,7 @@ paths:
           schema:
             anyOf:
               - type: string
-              - type: "null"
+              - type: 'null'
             title: Search
         - name: min_price
           in: query
@@ -1154,7 +1034,7 @@ paths:
             anyOf:
               - type: integer
                 minimum: 0
-              - type: "null"
+              - type: 'null'
             description: Минимальная цена
             title: Min Price
           description: Минимальная цена
@@ -1165,7 +1045,7 @@ paths:
             anyOf:
               - type: integer
                 minimum: 0
-              - type: "null"
+              - type: 'null'
             description: Максимальная цена
             title: Max Price
           description: Максимальная цена
@@ -1176,7 +1056,7 @@ paths:
             anyOf:
               - type: string
                 format: uuid
-              - type: "null"
+              - type: 'null'
             title: Seller Id
         - name: page
           in: query
@@ -1200,18 +1080,18 @@ paths:
             title: Size
           description: Товаров на странице
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductListResponse"
-        "422":
+                $ref: '#/components/schemas/ProductListResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/public/products/{product_id}:
     get:
       tags:
@@ -1227,18 +1107,18 @@ paths:
             format: uuid
             title: Product Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProductResponse"
-        "422":
+                $ref: '#/components/schemas/ProductResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/public/products/{product_id}/similar:
     get:
       tags:
@@ -1265,20 +1145,20 @@ paths:
             title: Limit
           description: Количество похожих товаров
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ProductResponse"
-        "422":
+                  $ref: '#/components/schemas/ProductResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/public/skus/{sku_id}:
     get:
       tags:
@@ -1294,18 +1174,18 @@ paths:
             format: uuid
             title: Sku Id
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SKUResponse"
-        "422":
+                $ref: '#/components/schemas/SKUResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     Body_login_api_auth_login_post:
@@ -1314,7 +1194,7 @@ components:
           anyOf:
             - type: string
               pattern: ^password$
-            - type: "null"
+            - type: 'null'
           title: Grant Type
         username:
           type: string
@@ -1326,16 +1206,16 @@ components:
         scope:
           type: string
           title: Scope
-          default: ""
+          default: ''
         client_id:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Client Id
         client_secret:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           format: password
           title: Client Secret
       type: object
@@ -1353,6 +1233,27 @@ components:
       required:
         - file
       title: Body_upload_image_endpoint_api_upload_image_post
+    CategoryRef:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        parent_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Parent Id
+      type: object
+      required:
+        - id
+        - name
+        - parent_id
+      title: CategoryRef
     CategoryCreate:
       properties:
         name:
@@ -1362,7 +1263,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: "null"
+            - type: 'null'
           title: Parent Id
       type: object
       required:
@@ -1381,7 +1282,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: "null"
+            - type: 'null'
           title: Parent Id
         created_at:
           type: string
@@ -1399,13 +1300,13 @@ components:
         name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Name
         parent_id:
           anyOf:
             - type: string
               format: uuid
-            - type: "null"
+            - type: 'null'
           title: Parent Id
       type: object
       title: CategoryUpdate
@@ -1422,7 +1323,7 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: "null"
+            - type: 'null'
           title: Parent Id
         created_at:
           type: string
@@ -1430,7 +1331,7 @@ components:
           title: Created At
         children:
           items:
-            $ref: "#/components/schemas/CategoryResponse"
+            $ref: '#/components/schemas/CategoryResponse'
           type: array
           title: Children
           default: []
@@ -1445,7 +1346,7 @@ components:
       properties:
         detail:
           items:
-            $ref: "#/components/schemas/ValidationError"
+            $ref: '#/components/schemas/ValidationError'
           type: array
           title: Detail
       type: object
@@ -1454,7 +1355,7 @@ components:
       properties:
         items:
           items:
-            $ref: "#/components/schemas/InvoiceItemCreate"
+            $ref: '#/components/schemas/InvoiceItemCreate'
           type: array
           title: Items
       type: object
@@ -1501,7 +1402,7 @@ components:
           title: Total
         items:
           items:
-            $ref: "#/components/schemas/InvoiceResponse"
+            $ref: '#/components/schemas/InvoiceResponse'
           type: array
           title: Items
       type: object
@@ -1520,10 +1421,10 @@ components:
           format: uuid
           title: Seller Id
         status:
-          $ref: "#/components/schemas/InvoiceStatus"
+          $ref: '#/components/schemas/InvoiceStatus'
         items:
           items:
-            $ref: "#/components/schemas/InvoiceItemResponse"
+            $ref: '#/components/schemas/InvoiceItemResponse'
           type: array
           title: Items
         created_at:
@@ -1580,21 +1481,6 @@ components:
         - name
         - value
       title: ProductCharacteristicResponse
-    ErrorResponse:
-      properties:
-        code:
-          type: string
-          title: Code
-          description: Машиночитаемый код ошибки (например, NOT_FOUND, NOT_OWNER, FORBIDDEN, INVALID_REQUEST, UNAUTHORIZED).
-        message:
-          type: string
-          title: Message
-          description: Человеко-читаемое описание ошибки.
-      type: object
-      required:
-        - code
-        - message
-      title: ErrorResponse
     ProductCreate:
       properties:
         category_id:
@@ -1603,67 +1489,31 @@ components:
           title: Category Id
         title:
           type: string
+          minLength: 1
           title: Title
         description:
-          anyOf:
-            - type: string
-            - type: "null"
+          type: string
+          minLength: 1
           title: Description
         images:
           items:
-            $ref: "#/components/schemas/ProductImageCreate"
+            $ref: '#/components/schemas/ProductImageCreate'
           type: array
+          minItems: 1
           title: Images
-          default: []
         characteristics:
           items:
-            $ref: "#/components/schemas/ProductCharacteristicCreate"
+            $ref: '#/components/schemas/ProductCharacteristicCreate'
           type: array
           title: Characteristics
           default: []
       type: object
       required:
         - category_id
-        - title
-      title: ProductCreate
-    ProductEditRequest:
-      description: |
-        Полное обновление карточки товара (PUT /api/v1/products/{id}).
-        Поля title, description, category_id обязательны и не могут быть null.
-        images и characteristics заменяются целиком (replace-стратегия).
-      properties:
-        title:
-          type: string
-          maxLength: 255
-          title: Title
-        description:
-          type: string
-          maxLength: 5000
-          title: Description
-        category_id:
-          type: string
-          format: uuid
-          title: Category Id
-        images:
-          items:
-            $ref: "#/components/schemas/ProductImageCreate"
-          type: array
-          title: Images
-          default: []
-        characteristics:
-          items:
-            $ref: "#/components/schemas/ProductCharacteristicCreate"
-          type: array
-          title: Characteristics
-          default: []
-      type: object
-      required:
         - title
         - description
-        - category_id
         - images
-        - characteristics
-      title: ProductEditRequest
+      title: ProductCreate
     ProductImageCreate:
       properties:
         url:
@@ -1713,12 +1563,12 @@ components:
         url:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Url
         ordering:
           anyOf:
             - type: integer
-            - type: "null"
+            - type: 'null'
           title: Ordering
       type: object
       title: ProductImageUpdateRequest
@@ -1729,7 +1579,7 @@ components:
           title: Total
         items:
           items:
-            $ref: "#/components/schemas/ProductShortResponse"
+            $ref: '#/components/schemas/ProductShortResponse'
           type: array
           title: Items
       type: object
@@ -1747,33 +1597,37 @@ components:
           type: string
           format: uuid
           title: Seller Id
-        category_id:
-          type: string
-          format: uuid
-          title: Category Id
+        category:
+          $ref: '#/components/schemas/CategoryRef'
         title:
           type: string
           title: Title
         description:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Description
         status:
-          $ref: "#/components/schemas/ProductStatus"
+          $ref: '#/components/schemas/ProductStatus'
+        deleted:
+          type: boolean
+          title: Deleted
+        blocked:
+          type: boolean
+          title: Blocked
         images:
           items:
-            $ref: "#/components/schemas/ProductImageResponse"
+            $ref: '#/components/schemas/ProductImageResponse'
           type: array
           title: Images
         characteristics:
           items:
-            $ref: "#/components/schemas/ProductCharacteristicResponse"
+            $ref: '#/components/schemas/ProductCharacteristicResponse'
           type: array
           title: Characteristics
         skus:
           items:
-            $ref: "#/components/schemas/SKUShortResponse"
+            $ref: '#/components/schemas/SKUShortResponse'
           type: array
           title: Skus
         created_at:
@@ -1788,10 +1642,11 @@ components:
       required:
         - id
         - seller_id
-        - category_id
+        - category
         - title
-        - description
         - status
+        - deleted
+        - blocked
         - images
         - characteristics
         - skus
@@ -1808,7 +1663,7 @@ components:
           type: string
           title: Title
         status:
-          $ref: "#/components/schemas/ProductStatus"
+          $ref: '#/components/schemas/ProductStatus'
         category_id:
           type: string
           format: uuid
@@ -1832,7 +1687,6 @@ components:
         - ON_MODERATION
         - MODERATED
         - BLOCKED
-        - HARD_BLOCKED
       title: ProductStatus
     ProductUpdate:
       properties:
@@ -1840,22 +1694,22 @@ components:
           anyOf:
             - type: string
               format: uuid
-            - type: "null"
+            - type: 'null'
           title: Category Id
         title:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Title
         description:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Description
         status:
           anyOf:
-            - $ref: "#/components/schemas/ProductStatus"
-            - type: "null"
+            - $ref: '#/components/schemas/ProductStatus'
+            - type: 'null'
       type: object
       title: ProductUpdate
     RefreshRequest:
@@ -1917,17 +1771,17 @@ components:
         article:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Article
         images:
           items:
-            $ref: "#/components/schemas/SKUImageCreate"
+            $ref: '#/components/schemas/SKUImageCreate'
           type: array
           title: Images
           default: []
         characteristics:
           items:
-            $ref: "#/components/schemas/SKUCharacteristicCreate"
+            $ref: '#/components/schemas/SKUCharacteristicCreate'
           type: array
           title: Characteristics
           default: []
@@ -1937,64 +1791,6 @@ components:
         - name
         - price
       title: SKUCreate
-    SKUEditRequest:
-      description: |
-        Полное обновление SKU (PUT /api/v1/skus/{id}).
-        product_id и reserved_quantity не принимаются: первое нельзя
-        изменить через edit, второе сохраняется автоматически.
-        images и characteristics заменяются целиком (replace-стратегия).
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-          title: Name
-        price:
-          type: integer
-          minimum: 0
-          title: Price
-        stock_quantity:
-          type: integer
-          minimum: 0
-          title: Stock Quantity
-        article:
-          type: string
-          minLength: 1
-          maxLength: 255
-          title: Article
-        cost_price:
-          anyOf:
-            - type: integer
-              minimum: 0
-            - type: "null"
-          title: Cost Price
-        discount:
-          anyOf:
-            - type: integer
-              minimum: 0
-            - type: "null"
-          title: Discount
-        images:
-          items:
-            $ref: "#/components/schemas/SKUImageCreate"
-          type: array
-          title: Images
-          default: []
-        characteristics:
-          items:
-            $ref: "#/components/schemas/SKUCharacteristicCreate"
-          type: array
-          title: Characteristics
-          default: []
-      type: object
-      required:
-        - name
-        - price
-        - stock_quantity
-        - article
-        - images
-        - characteristics
-      title: SKUEditRequest
     SKUImageCreate:
       properties:
         url:
@@ -2044,12 +1840,12 @@ components:
         url:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Url
         ordering:
           anyOf:
             - type: integer
-            - type: "null"
+            - type: 'null'
           title: Ordering
       type: object
       title: SKUImageUpdateRequest
@@ -2072,35 +1868,19 @@ components:
         stock_quantity:
           type: integer
           title: Stock Quantity
-        reserved_quantity:
-          type: integer
-          minimum: 0
-          default: 0
-          title: Reserved Quantity
-          description: Текущий объём резерва. Только для чтения; через API не задаётся.
         article:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Article
-        cost_price:
-          anyOf:
-            - type: integer
-            - type: "null"
-          title: Cost Price
-        discount:
-          anyOf:
-            - type: integer
-            - type: "null"
-          title: Discount
         images:
           items:
-            $ref: "#/components/schemas/SKUImageResponse"
+            $ref: '#/components/schemas/SKUImageResponse'
           type: array
           title: Images
         characteristics:
           items:
-            $ref: "#/components/schemas/SKUCharacteristicResponse"
+            $ref: '#/components/schemas/SKUCharacteristicResponse'
           type: array
           title: Characteristics
         created_at:
@@ -2142,7 +1922,7 @@ components:
         article:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Article
       type: object
       required:
@@ -2157,17 +1937,17 @@ components:
         name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Name
         price:
           anyOf:
             - type: integer
-            - type: "null"
+            - type: 'null'
           title: Price
         article:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Article
       type: object
       title: SKUUpdate
@@ -2189,7 +1969,7 @@ components:
         middle_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Middle Name
         company_name:
           type: string
@@ -2198,7 +1978,7 @@ components:
           anyOf:
             - type: string
               format: phone
-            - type: "null"
+            - type: 'null'
           title: Phone
       type: object
       required:
@@ -2226,7 +2006,7 @@ components:
         middle_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Middle Name
         company_name:
           type: string
@@ -2234,7 +2014,7 @@ components:
         phone:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Phone
         created_at:
           type: string
@@ -2261,27 +2041,27 @@ components:
         first_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: First Name
         last_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Last Name
         middle_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Middle Name
         company_name:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Company Name
         phone:
           anyOf:
             - type: string
-            - type: "null"
+            - type: 'null'
           title: Phone
       type: object
       title: SellerUpdate
