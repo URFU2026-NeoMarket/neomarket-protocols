@@ -1761,6 +1761,14 @@ components:
           title: Description
         status:
           $ref: "#/components/schemas/ProductStatus"
+        deleted:
+          type: boolean
+          description: Мягкое удаление товара. Если true — товар не показывается в каталоге и в списке продавца.
+          example: false
+        blocked:
+          type: boolean
+          description: Признак блокировки модератором. true для статусов BLOCKED и HARD_BLOCKED.
+          example: false
         images:
           items:
             $ref: "#/components/schemas/ProductImageResponse"
@@ -1792,6 +1800,8 @@ components:
         - title
         - description
         - status
+        - deleted
+        - blocked
         - images
         - characteristics
         - skus
