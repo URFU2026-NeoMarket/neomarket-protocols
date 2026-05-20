@@ -933,6 +933,7 @@ paths:
         Использует SELECT FOR UPDATE по всем sku_id. При active_quantity=0 →
         отправляет событие SKU_OUT_OF_STOCK в B2C. Идемпотентно по idempotency_key (TTL 1 час).
       operationId: reserveInventory
+      security: [{ ServiceKey: [] }]
       parameters:
         - {
             name: X-Service-Key,
@@ -940,6 +941,15 @@ paths:
             required: true,
             schema: { type: string },
           }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid }
+          description: |
+            UUID для идемпотентной обработки запроса на уровне транспорта.
+            Если ключ уже использовался — возвращается кэшированный ответ без
+            повторного эффекта. TTL 24 часа. Дополняет поле `idempotency_key`
+            в теле; при наличии обоих значения должны совпадать.
       requestBody:
         required: true
         content:
@@ -964,6 +974,7 @@ paths:
       tags: [Inventory]
       summary: Снять резерв (при отмене заказа). Идемпотентно по order_id.
       operationId: unreserveInventory
+      security: [{ ServiceKey: [] }]
       parameters:
         - {
             name: X-Service-Key,
@@ -971,6 +982,13 @@ paths:
             required: true,
             schema: { type: string },
           }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid }
+          description: |
+            UUID для идемпотентной обработки запроса. Если ключ уже использовался —
+            возвращается кэшированный ответ без повторного эффекта. TTL 24 часа.
       requestBody:
         required: true
         content:
@@ -990,6 +1008,7 @@ paths:
         Списание резерва при доставке (вызывается B2C admin при переходе заказа
         в DELIVERED). Уменьшает reserved_quantity и stock_quantity.
       operationId: fulfillInventory
+      security: [{ ServiceKey: [] }]
       parameters:
         - {
             name: X-Service-Key,
@@ -997,6 +1016,13 @@ paths:
             required: true,
             schema: { type: string },
           }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid }
+          description: |
+            UUID для идемпотентной обработки запроса. Если ключ уже использовался —
+            возвращается кэшированный ответ без повторного эффекта. TTL 24 часа.
       requestBody:
         required: true
         content:
@@ -1019,6 +1045,7 @@ paths:
         BLOCKED → если в БД были active_quantity>0 — также отправляются события
         в B2C (PRODUCT_BLOCKED).
       operationId: receiveModerationEvent
+      security: [{ ServiceKey: [] }]
       parameters:
         - {
             name: X-Service-Key,
@@ -1046,6 +1073,16 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    ServiceKey:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: |
+        Service-to-service аутентификация. Каждое направление
+        (B2B_TO_MOD, MOD_TO_B2B, B2C_TO_B2B, B2B_TO_B2C) использует отдельный
+        ключ из env-переменных. Применяется на:
+        - входящих событиях от Moderation (`/api/v1/moderation/events`);
+        - входящих вызовах от B2C (`/api/v1/inventory/*`, `/api/v1/public/*`).
 
   responses:
     Unauthorized:
