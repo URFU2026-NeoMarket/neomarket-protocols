@@ -349,9 +349,13 @@ paths:
       summary: Похожие товары
       security: []
       parameters:
+        - name: category
+          in: query
+          description: Category id used to constrain similar products. Unknown category returns INVALID_REQUEST.
+          schema: { type: string, format: uuid }
         - name: limit
           in: query
-          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+          schema: { type: integer, minimum: 1, maximum: 20, default: 10 }
       responses:
         "200":
           description: Список
@@ -360,6 +364,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/CatalogProductCard" }
+        "400": { $ref: "#/components/responses/BadRequest" }
 
   /api/v1/catalog/banners:
     get:
