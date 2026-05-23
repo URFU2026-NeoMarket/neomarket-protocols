@@ -354,7 +354,7 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/ProductResponse"
+                  - $ref: "#/components/schemas/ProductDetailResponse"
                   - $ref: "#/components/schemas/ProductPublicResponse"
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
@@ -1784,3 +1784,26 @@ components:
           }
         sku_id: { type: string, format: uuid, nullable: true }
         comment: { type: string }
+
+    BlockingReason:
+      type: object
+      required: [id, title, comment]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        comment: { type: string }
+
+    ProductDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/ProductResponse"
+        - type: object
+          required: [blocked, field_reports]
+          properties:
+            blocked: { type: boolean }
+            blocking_reason:
+              allOf:
+                - $ref: "#/components/schemas/BlockingReason"
+              nullable: true
+            field_reports:
+              type: array
+              items: { $ref: "#/components/schemas/FieldReport" }
