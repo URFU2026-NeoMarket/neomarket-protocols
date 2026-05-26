@@ -1794,16 +1794,50 @@ components:
         comment: { type: string }
 
     ProductDetailResponse:
-      allOf:
-        - $ref: "#/components/schemas/ProductResponse"
-        - type: object
-          required: [blocked, field_reports]
-          properties:
-            blocked: { type: boolean }
-            blocking_reason:
-              allOf:
-                - $ref: "#/components/schemas/BlockingReason"
-              nullable: true
-            field_reports:
-              type: array
-              items: { $ref: "#/components/schemas/FieldReport" }
+      type: object
+      description: Полный seller-view (включает cost_price / reserved_quantity у SKU) с детализацией блокировки (без плоских legacy-полей).
+      required:
+        - id
+        - seller_id
+        - category_id
+        - title
+        - slug
+        - description
+        - status
+        - deleted
+        - images
+        - characteristics
+        - skus
+        - created_at
+        - updated_at
+        - blocked
+        - blocking_reason
+        - field_reports
+      properties:
+        id: { type: string, format: uuid }
+        seller_id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        title: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        status: { $ref: "#/components/schemas/ProductStatus" }
+        deleted: { type: boolean }
+        images:
+          type: array
+          items: { $ref: "#/components/schemas/ProductImageResponse" }
+        characteristics:
+          type: array
+          items: { $ref: "#/components/schemas/CharacteristicResponse" }
+        skus:
+          type: array
+          items: { $ref: "#/components/schemas/SKUResponse" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        blocked: { type: boolean }
+        blocking_reason:
+          allOf:
+            - $ref: "#/components/schemas/BlockingReason"
+          nullable: true
+        field_reports:
+          type: array
+          items: { $ref: "#/components/schemas/FieldReport" }
