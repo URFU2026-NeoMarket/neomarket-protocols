@@ -361,6 +361,41 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/CatalogProductCard" }
 
+  /api/v1/catalog/facets:
+    get:
+      tags: [Catalog]
+      summary: Фасеты категории (подсчёты по значениям характеристик)
+      description: |
+        Возвращает агрегированные счётчики по характеристикам для всех видимых товаров
+        указанной категории. Учитываются только товары со статусом `MODERATED` и
+        `active_quantity > 0` хотя бы у одного SKU. Если передан параметр `filters`,
+        счётчики рассчитываются по уже отфильтрованному набору товаров.
+      security: []
+      parameters:
+        - name: category_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID категории
+        - name: filters
+          in: query
+          required: false
+          schema: { type: string }
+          description: |
+            JSON-объект вида `{"ключ_характеристики": ["значение1", "значение2"]}`.
+            Ключи нормализуются (lowercase, пробелы → `_`).
+          example: '{"бренд":["Apple","Samsung"]}'
+      responses:
+        "200":
+          description: Фасеты категории
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CatalogFacetsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/catalog/banners:
     get:
       tags: [Catalog]
@@ -864,6 +899,16 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    BadGateway:
+      description: Upstream-сервис (B2B) вернул ошибку
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServiceUnavailable:
+      description: Upstream-сервис (B2B) недоступен
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
     # -------- Базовые --------
@@ -1121,6 +1166,43 @@ components:
         total_count: { type: integer }
         limit: { type: integer }
         offset: { type: integer }
+
+    CatalogFacetsResponse:
+      type: object
+      required: [category_id, facets]
+      properties:
+        category_id:
+          type: string
+          format: uuid
+          description: UUID категории, для которой возвращены фасеты
+        facets:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogFacet" }
+
+    CatalogFacet:
+      type: object
+      required: [name, values]
+      properties:
+        name:
+          type: string
+          description: Нормализованный slug характеристики (lowercase, пробелы → `_`)
+          example: бренд
+        values:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogFacetValue" }
+
+    CatalogFacetValue:
+      type: object
+      required: [value, count]
+      properties:
+        value:
+          type: string
+          description: Значение характеристики
+          example: Apple
+        count:
+          type: integer
+          minimum: 1
+          description: Количество видимых товаров с данным значением
 
     Banner:
       type: object
