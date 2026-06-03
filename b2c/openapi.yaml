@@ -768,7 +768,7 @@ paths:
         - PRICE_CHANGED — обновить кеш каталога, триггер PRICE_DROP-уведомлений
         - BACK_IN_STOCK — триггер уведомлений подписчикам
         Идемпотентность по polю idempotency_key (TTL 24 часа).
-      security: []
+      security: [{ ServiceKey: [] }]
       parameters:
         - $ref: "#/components/parameters/ServiceKey"
       requestBody:
@@ -788,6 +788,15 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    ServiceKey:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: |
+        Service-to-service аутентификация. Каждое направление
+        (B2B_TO_MOD, MOD_TO_B2B, B2C_TO_B2B, B2B_TO_B2C) использует отдельный
+        ключ из env-переменных. Применяется на входящих событиях от B2B
+        (`/api/v1/b2b/events`) и при проксировании каталога в B2B.
 
   parameters:
     LimitParam:
