@@ -696,7 +696,11 @@ paths:
       tags: [Orders]
       summary: Отменить заказ
       description: |
-        Отмена разрешена только в статусах CREATED/PAID/ASSEMBLING.
+        Отмена разрешена в статусах CREATED/PAID/ASSEMBLING/DELIVERING.
+        Терминальные статусы (DELIVERED/CANCELLED/CANCEL_PENDING) → 409 CANCEL_NOT_ALLOWED.
+        Граница пересмотрена 2026-06-14: окно отмены расширено до DELIVERING — покупатель
+        вправе отменить, пока заказ физически не доставлен (сборку и доставку ещё можно
+        развернуть через unreserve). Синхронизировано с canon b2c-orders-flows.md и DoD US-ORD-03.
         Алгоритм:
         1. Перевод заказа в CANCEL_PENDING.
         2. Вызов unreserve в B2B (идемпотентно по order_id).
@@ -719,7 +723,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OrderResponse" }
         "409":
-          description: Статус не допускает отмену
+          description: Статус не допускает отмену (DELIVERED/CANCELLED/CANCEL_PENDING) — CANCEL_NOT_ALLOWED
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
