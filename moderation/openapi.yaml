@@ -341,8 +341,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TicketResponse' }
+        '403':
+          description: |
+            Тикет закреплён за другим модератором (NOT_ASSIGNED) — нельзя
+            модерировать чужую карточку. Добавлено 2026-06-16: разведено с 409
+            (409 = неверный статус, 403 = чужой тикет; ранее 409 покрывал оба).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '409':
-          description: Неверный статус или чужой тикет
+          description: Неверный статус тикета (не IN_REVIEW, нет SKU и т.п.)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -370,8 +378,18 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/TicketResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: |
+            Тикет закреплён за другим модератором (NOT_ASSIGNED) — нельзя
+            модерировать чужую карточку. Добавлено 2026-06-16: разведено с 409.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '409':
-          description: Неверный статус или чужой тикет
+          description: Неверный статус тикета (не IN_REVIEW)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   # -------------------- BLOCKING REASONS --------------------
   /api/v1/blocking-reasons:
